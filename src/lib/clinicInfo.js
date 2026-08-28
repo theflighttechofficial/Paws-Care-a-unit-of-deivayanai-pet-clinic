@@ -1,0 +1,2 @@
+export const CLINIC_PHONE_DISPLAY = "+91 98410 50748"
+export const CLINIC_PHONE_TEL = "+919841050748"

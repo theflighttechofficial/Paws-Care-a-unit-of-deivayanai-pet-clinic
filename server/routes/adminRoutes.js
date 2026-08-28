@@ -1,0 +1,18 @@
+import express from "express"
+import { getAdminAppointments, getAdminPatients, getAdminStats } from "../controllers/adminController.js"
+import { disconnectGoogle, getGoogleConnectionStatus, startGoogleConnect } from "../controllers/googleAuthController.js"
+import { protect, requireRole } from "../middleware/authMiddleware.js"
+
+const router = express.Router()
+
+router.use(protect)
+router.use(requireRole("admin"))
+
+router.get("/stats", getAdminStats)
+router.get("/appointments", getAdminAppointments)
+router.get("/patients", getAdminPatients)
+router.get("/google/connect", startGoogleConnect)
+router.get("/google/status", getGoogleConnectionStatus)
+router.post("/google/disconnect", disconnectGoogle)
+
+export default router
