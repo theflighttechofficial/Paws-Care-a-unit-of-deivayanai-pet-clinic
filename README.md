@@ -1,5 +1,7 @@
 # Paws & Care
 
+> **Important:** Do not pull or clone this repository without authorization from the project owner.
+
 > A full-stack veterinary clinic platform for pet owners, doctors, and clinic administrators.
 
 Paws & Care brings pet profiles, appointment booking, medical records, and clinic operations into one focused workspace. Pet owners can manage their animals and appointments, doctors can document visits, and administrators can oversee clinic activity and connect Google Calendar for event and Meet-link creation.
