@@ -9,6 +9,7 @@ import {
   Heart,
   MapPin,
   Phone,
+  Scissors,
   Stethoscope,
   Video,
   PawPrint,
@@ -19,6 +20,7 @@ import apiRequest from "../lib/api"
 import { buildGoogleCalendarLink } from "../lib/googleCalendarLink"
 import Logo from "../components/Logo"
 import EmptyState from "../components/EmptyState"
+import PaymentGate from "../components/PaymentGate"
 import { CLINIC_PHONE_DISPLAY, CLINIC_PHONE_TEL } from "../lib/clinicInfo"
 
 /* Legacy mock pet data intentionally disabled: choices load from /api/pets. */
@@ -73,6 +75,13 @@ const services = [
     duration: "20 min",
     price: "₹400",
     icon: CalendarDays,
+  },
+  {
+    id: "surgery",
+    title: "Surgery",
+    description: "Surgical procedures need a phone consultation first — no online slot booking.",
+    icon: Scissors,
+    phoneOnly: true,
   },
 ]
 
@@ -138,8 +147,10 @@ export default function Booking() {
   const [bookingError, setBookingError] = useState("")
   const [bookedTimes, setBookedTimes] = useState([])
   const [slotsLoading, setSlotsLoading] = useState(false)
+  const [doctorOnLeave, setDoctorOnLeave] = useState(false)
 
   const isPhoneConsultation = selectedType?.id === "phone"
+  const isSurgery = selectedService?.phoneOnly
 
   useEffect(() => {
     if (authLoading || !user?.id) {
@@ -172,8 +183,14 @@ export default function Booking() {
     const dateParam = selectedDate.value.slice(0, 10)
     setSlotsLoading(true)
     apiRequest(`/appointments/booked-slots?doctorId=${doctorId}&date=${dateParam}`)
-      .then((response) => setBookedTimes(response.bookedTimes || []))
-      .catch(() => setBookedTimes([]))
+      .then((response) => {
+        setBookedTimes(response.bookedTimes || [])
+        setDoctorOnLeave(Boolean(response.onLeave))
+      })
+      .catch(() => {
+        setBookedTimes([])
+        setDoctorOnLeave(false)
+      })
       .finally(() => setSlotsLoading(false))
   }, [selectedDoctor, selectedDate])
 
@@ -208,7 +225,7 @@ export default function Booking() {
     if (step === 2) return selectedService
     if (step === 3) return selectedType
     if (step === 4) return selectedDoctor
-    if (step === 5) return selectedDate && selectedTime
+    if (step === 5) return selectedDate && selectedTime && !doctorOnLeave
 
     return true
   }
@@ -216,8 +233,13 @@ export default function Booking() {
   const nextStep = () => {
     if (!canContinue()) return
 
-    if (step === 3 && isPhoneConsultation) {
+    if (step === 2 && isSurgery) {
       setStep("phone")
+      return
+    }
+
+    if (step === 3 && isPhoneConsultation) {
+      setStep("phone-payment")
       return
     }
 
@@ -226,6 +248,11 @@ export default function Booking() {
 
   const previousStep = () => {
     if (step === "phone") {
+      setStep(isSurgery ? 2 : "phone-payment")
+      return
+    }
+
+    if (step === "phone-payment") {
       setStep(3)
       return
     }
@@ -252,10 +279,11 @@ export default function Booking() {
       })
 
       setBookedAppointment(response.appointment)
-      setStep(7)
       if (response.googleCalendarStatus) {
         localStorage.setItem("lastGoogleCalendarStatus", response.googleCalendarStatus)
       }
+
+      setStep(selectedType.id === "online" ? "online-payment" : 7)
     } catch (error) {
       setBookingError(error.message || "Unable to book the appointment.")
     }
@@ -414,11 +442,17 @@ export default function Booking() {
                                 {service.description}
                               </p>
 
-                              <div className="mt-3 flex gap-3 text-[10px] text-[#718079]">
-                                <span>{service.duration}</span>
-                                <span>•</span>
-                                <span>Est. {service.price}</span>
-                              </div>
+                              {service.phoneOnly ? (
+                                <p className="mt-3 text-[10px] font-semibold text-[#4c806c]">
+                                  We'll skip the slot picker — you'll call {CLINIC_PHONE_DISPLAY} directly
+                                </p>
+                              ) : (
+                                <div className="mt-3 flex gap-3 text-[10px] text-[#718079]">
+                                  <span>{service.duration}</span>
+                                  <span>•</span>
+                                  <span>Est. {service.price}</span>
+                                </div>
+                              )}
                             </div>
 
                             <SelectionIndicator
@@ -616,32 +650,45 @@ export default function Booking() {
                           </p>
                         )}
 
-                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {getTimeSlotsForDate(selectedDate).map((time) => {
-                            const isBooked = bookedTimes.includes(time)
+                        {!slotsLoading && doctorOnLeave ? (
+                          <div className="mt-4 rounded-2xl border border-dashed border-[#e7c9c5] bg-[#faf2f1] p-5 text-center">
+                            <p className="text-sm font-semibold text-[#a06b68]">
+                              {selectedDoctor.name} is on leave this day
+                            </p>
+                            <p className="mt-1 text-xs text-[#87928c]">
+                              Please choose another date to see available times.
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                              {getTimeSlotsForDate(selectedDate).map((time) => {
+                                const isBooked = bookedTimes.includes(time)
 
-                            return (
-                              <button
-                                key={time}
-                                disabled={isBooked}
-                                onClick={() => setSelectedTime(time)}
-                                className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-xs font-semibold transition ${
-                                  isBooked
-                                    ? "cursor-not-allowed border-[#e9ede9] bg-[#f3f5f3] text-[#b7c0ba] line-through"
-                                    : selectedTime === time
-                                      ? "border-[#173b31] bg-[#173b31] text-white"
-                                      : "border-[#dfe6e1] bg-white hover:border-[#8aaa99]"
-                                }`}
-                              >
-                                <Clock3 size={13} />
-                                {time}
-                              </button>
-                            )
-                          })}
-                        </div>
+                                return (
+                                  <button
+                                    key={time}
+                                    disabled={isBooked}
+                                    onClick={() => setSelectedTime(time)}
+                                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-xs font-semibold transition ${
+                                      isBooked
+                                        ? "cursor-not-allowed border-[#e9ede9] bg-[#f3f5f3] text-[#b7c0ba] line-through"
+                                        : selectedTime === time
+                                          ? "border-[#173b31] bg-[#173b31] text-white"
+                                          : "border-[#dfe6e1] bg-white hover:border-[#8aaa99]"
+                                    }`}
+                                  >
+                                    <Clock3 size={13} />
+                                    {time}
+                                  </button>
+                                )
+                              })}
+                            </div>
 
-                        {slotsLoading && (
-                          <p className="mt-3 text-[10px] text-[#a0aaa5]">Checking availability…</p>
+                            {slotsLoading && (
+                              <p className="mt-3 text-[10px] text-[#a0aaa5]">Checking availability…</p>
+                            )}
+                          </>
                         )}
                       </motion.div>
                     )}
@@ -768,8 +815,36 @@ export default function Booking() {
           </>
         )}
 
+        {step === "phone-payment" && (
+          <PaymentGate
+            purpose="phone_consultation"
+            user={user}
+            title="Pay to get the clinic's number"
+            description="Phone consultations start with a quick ₹200 fee — once paid, we'll show you the number to call."
+            onPaid={() => setStep("phone")}
+            onBack={previousStep}
+          />
+        )}
+
         {step === "phone" && (
-          <PhoneCallScreen pet={selectedPet} onBack={previousStep} onDashboard={() => navigate("/dashboard")} />
+          <PhoneCallScreen
+            pet={selectedPet}
+            isSurgery={isSurgery}
+            onBack={previousStep}
+            onDashboard={() => navigate("/dashboard")}
+          />
+        )}
+
+        {step === "online-payment" && (
+          <PaymentGate
+            purpose="online_consultation"
+            appointmentId={bookedAppointment?._id || bookedAppointment?.id}
+            user={user}
+            title="Pay to confirm your online consultation"
+            description="Your slot is booked. Pay the ₹200 consultation fee to get the call-to-confirm number and your Google Meet link."
+            onPaid={() => setStep(7)}
+            onBack={() => navigate("/dashboard")}
+          />
         )}
 
         {step === 7 && (
@@ -954,7 +1029,7 @@ function ReviewRow({
   )
 }
 
-function PhoneCallScreen({ pet, onBack, onDashboard }) {
+function PhoneCallScreen({ pet, isSurgery, onBack, onDashboard }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.97 }}
@@ -966,7 +1041,7 @@ function PhoneCallScreen({ pet, onBack, onDashboard }) {
       </div>
 
       <p className="mt-8 text-xs font-bold uppercase tracking-[0.2em] text-[#4c806c]">
-        Phone consultation
+        {isSurgery ? "Surgery consultation" : "Phone consultation"}
       </p>
 
       <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
@@ -974,8 +1049,9 @@ function PhoneCallScreen({ pet, onBack, onDashboard }) {
       </h1>
 
       <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#718079]">
-        Phone consultations aren't scheduled through a time slot — call the clinic directly and
-        we'll take it from there.
+        {isSurgery
+          ? "Surgical procedures need a phone consultation before scheduling — call the clinic directly and we'll take it from there."
+          : "Phone consultations aren't scheduled through a time slot — call the clinic directly and we'll take it from there."}
       </p>
 
       <a

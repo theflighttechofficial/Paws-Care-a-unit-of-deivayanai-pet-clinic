@@ -10,8 +10,8 @@ import {
 import { Link } from "react-router-dom"
 import apiRequest from "../../lib/api"
 import { useAuth } from "../../context/AuthContext"
-import Logo from "../../components/Logo"
 import EmptyState from "../../components/EmptyState"
+import AdminSidebar from "../../components/AdminSidebar"
 
 const statusOptions = ["All", "confirmed", "pending", "completed", "cancelled"]
 
@@ -65,7 +65,7 @@ export default function Appointments() {
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#17221e]">
-      <AdminSidebar />
+      <AdminSidebar active="appointments" />
 
       <main className="lg:ml-64">
         <header className="border-b border-[#e1e6e2] bg-white px-5 py-5 md:px-8">
@@ -286,68 +286,5 @@ function AppointmentRow({
         </button>
       </div>
     </div>
-  )
-}
-
-function AdminSidebar() {
-  return (
-    <aside className="fixed bottom-0 left-0 top-0 hidden w-64 border-r border-[#e1e6e2] bg-white px-5 py-7 lg:block">
-      <Link to="/" className="px-3">
-        <Logo size={36} textClassName="block text-sm font-bold tracking-[0.17em]" subClassName="block text-[9px] tracking-wide text-[#87928c]" />
-      </Link>
-
-      <p className="mt-10 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#a0aaa5]">
-        Clinic
-      </p>
-
-      <nav className="mt-3 space-y-2">
-        <AdminNav to="/admin" label="⌂  Overview" />
-
-        <AdminNav
-          to="/admin/appointments"
-          label="📅  Appointments"
-          active
-        />
-
-        <AdminNav
-          to="/admin/patients"
-          label="🐾  Patients"
-        />
-
-        <AdminNav
-          to="/admin/doctors"
-          label="🩺  Doctors"
-        />
-
-        <AdminNav
-          to="/admin/services"
-          label="✚  Services"
-        />
-
-        <AdminNav
-          to="/admin/settings"
-          label="⚙  Settings"
-        />
-      </nav>
-    </aside>
-  )
-}
-
-function AdminNav({
-  to,
-  label,
-  active,
-}) {
-  return (
-    <Link
-      to={to}
-      className={`block rounded-xl px-4 py-3 text-sm font-medium ${
-        active
-          ? "bg-[#e7f0e9] text-[#285b4c]"
-          : "text-[#718079] hover:bg-[#f5f7f5]"
-      }`}
-    >
-      {label}
-    </Link>
   )
 }

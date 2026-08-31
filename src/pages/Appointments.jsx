@@ -9,6 +9,7 @@ import {
   ChevronRight,
   X,
   Check,
+  CreditCard,
   Plus,
   Stethoscope,
   PawPrint,
@@ -19,6 +20,7 @@ import { buildGoogleCalendarLink } from "../lib/googleCalendarLink"
 import { useAuth } from "../context/AuthContext"
 import Logo from "../components/Logo"
 import AnimatedEmptyState from "../components/EmptyState"
+import PaymentGate from "../components/PaymentGate"
 import { CLINIC_PHONE_DISPLAY, CLINIC_PHONE_TEL } from "../lib/clinicInfo"
 
 const petEmoji = { Dog: "🐕", Cat: "🐈", Bird: "🦜", Rabbit: "🐇", Other: "🐾" }
@@ -29,7 +31,7 @@ const fullDate = (value) => new Intl.DateTimeFormat("en-IN", { weekday: "long", 
 const tabs = ["Upcoming", "Past", "Cancelled"]
 
 export default function Appointments() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const [appointments, setAppointments] = useState([])
   const [petCount, setPetCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -38,6 +40,16 @@ export default function Appointments() {
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+  const [payingAppointment, setPayingAppointment] = useState(null)
+
+  const markAppointmentPaid = (appointmentId) => {
+    setAppointments((current) =>
+      current.map((appointment) =>
+        appointment._id === appointmentId ? { ...appointment, paymentStatus: "paid" } : appointment
+      )
+    )
+    setPayingAppointment(null)
+  }
 
   useEffect(() => {
     Promise.all([apiRequest("/appointments/owner/mine"), apiRequest("/pets")])
@@ -210,6 +222,7 @@ export default function Appointments() {
                       onCancel={() =>
                         setCancelTarget(appointment)
                       }
+                      onPayNow={() => setPayingAppointment(appointment)}
                     />
                   </motion.div>
                 )
@@ -229,7 +242,30 @@ export default function Appointments() {
             onClose={() =>
               setSelectedAppointment(null)
             }
+            onPayNow={() => {
+              setSelectedAppointment(null)
+              setPayingAppointment(selectedAppointment)
+            }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Payment modal */}
+      <AnimatePresence>
+        {payingAppointment && (
+          <Modal onClose={() => setPayingAppointment(null)}>
+            <div className="p-2">
+              <PaymentGate
+                purpose="online_consultation"
+                appointmentId={payingAppointment._id}
+                user={user}
+                title="Pay to confirm your online consultation"
+                description="Pay the ₹200 consultation fee to get the call-to-confirm number and your Google Meet link."
+                onPaid={() => markAppointmentPaid(payingAppointment._id)}
+                onBack={() => setPayingAppointment(null)}
+              />
+            </div>
+          </Modal>
         )}
       </AnimatePresence>
 
@@ -283,10 +319,12 @@ function AppointmentCard({
   appointment,
   onView,
   onCancel,
+  onPayNow,
 }) {
   const isOnline = appointment.type === "online"
   const isCompleted =
     appointment.status === "completed"
+  const isPaid = appointment.paymentStatus === "paid"
 
   return (
     <div className="group overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white transition hover:border-[#cbd8cf] hover:shadow-sm">
@@ -389,7 +427,32 @@ function AppointmentCard({
         </div>
 
         {/* Online appointment CTA */}
-        {isOnline && !isCompleted && (
+        {isOnline && !isCompleted && !isPaid && (
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-[#faf2f1] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#a06b68]">
+                <CreditCard size={15} />
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold">Payment required</p>
+                <p className="mt-0.5 text-[10px] text-[#87928c]">
+                  Pay the ₹200 consultation fee to get the call-to-confirm number and Google Meet link.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={onPayNow}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#173b31] px-5 py-2.5 text-[10px] font-semibold text-white"
+            >
+              <CreditCard size={12} />
+              Pay ₹200
+            </button>
+          </div>
+        )}
+
+        {isOnline && !isCompleted && isPaid && (
           <div className="mt-5 rounded-2xl bg-[#edf4ef] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
@@ -517,9 +580,11 @@ function EmptyState({ tab }) {
 function DetailsModal({
   appointment,
   onClose,
+  onPayNow,
 }) {
   const isOnline =
     appointment.type === "online"
+  const isPaid = appointment.paymentStatus === "paid"
 
   return (
     <Modal onClose={onClose}>
@@ -594,7 +659,23 @@ function DetailsModal({
           />
         </div>
 
-        {isOnline && (
+        {isOnline && !isPaid && (
+          <div className="mt-7 rounded-2xl bg-[#faf2f1] p-5 text-center">
+            <p className="text-sm font-semibold text-[#a06b68]">Payment required</p>
+            <p className="mt-1 text-xs text-[#87928c]">
+              Pay the ₹200 consultation fee to get the call-to-confirm number and Google Meet link.
+            </p>
+            <button
+              onClick={onPayNow}
+              className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-full bg-[#173b31] px-6 py-3 text-xs font-semibold text-white"
+            >
+              <CreditCard size={14} />
+              Pay ₹200
+            </button>
+          </div>
+        )}
+
+        {isOnline && isPaid && (
           <div className="mt-7 space-y-3">
             <a
               href={`tel:${CLINIC_PHONE_TEL}`}

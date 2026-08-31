@@ -3,6 +3,12 @@ import { pool } from "../config/db.js"
 const APPOINTMENT_SELECT = `
   select
     a.*,
+    (
+      select p.status from public.payments p
+      where p.appointment_id = a.id and p.purpose = 'online_consultation'
+      order by p.created_at desc
+      limit 1
+    ) as payment_status,
     row_to_json(pt.*) as pet,
     json_build_object(
       'id', op.id,
@@ -38,6 +44,7 @@ const shapeAppointmentRow = (row) => ({
   appointment_time: row.appointment_time,
   duration: row.duration,
   status: row.status,
+  payment_status: row.payment_status,
   google_calendar_event_id: row.google_calendar_event_id,
   google_meet_url: row.google_meet_url,
   google_sync_status: row.google_sync_status,

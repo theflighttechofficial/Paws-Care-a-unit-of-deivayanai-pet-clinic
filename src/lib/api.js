@@ -89,6 +89,7 @@ const normalizeAppointment = (appointment) => {
     googleMeetLink: appointment.google_meet_url || appointment.googleMeetLink || null,
     googleEventId: appointment.google_calendar_event_id || appointment.googleEventId || null,
     googleSyncStatus: appointment.google_sync_status || appointment.googleSyncStatus || null,
+    paymentStatus: appointment.payment_status || appointment.paymentStatus || null,
     pet: {
       ...pet,
       _id: pet.id || pet._id || "",
@@ -208,7 +209,41 @@ export async function apiRequest(path, options = {}) {
 
   if (path.startsWith("/appointments/booked-slots")) {
     const data = await request(path)
-    return { bookedTimes: data.bookedTimes || [] }
+    return { bookedTimes: data.bookedTimes || [], onLeave: Boolean(data.onLeave) }
+  }
+
+  if (path === "/leaves/mine" && method === "GET") {
+    const data = await request("/leaves/mine")
+    return { leaves: data.leaves || [] }
+  }
+
+  if (path === "/leaves/mine" && method === "POST") {
+    return request("/leaves/mine", { method: "POST", body: options.body })
+  }
+
+  if (path.startsWith("/leaves/mine/") && method === "DELETE") {
+    return request(path, { method: "DELETE" })
+  }
+
+  if (path === "/leaves" && method === "GET") {
+    const data = await request("/leaves")
+    return { leaves: data.leaves || [] }
+  }
+
+  if (path === "/leaves" && method === "POST") {
+    return request("/leaves", { method: "POST", body: options.body })
+  }
+
+  if (path.startsWith("/leaves/") && method === "DELETE") {
+    return request(path, { method: "DELETE" })
+  }
+
+  if (path === "/payments/create-order") {
+    return request("/payments/create-order", { method: "POST", body: options.body })
+  }
+
+  if (path === "/payments/verify") {
+    return request("/payments/verify", { method: "POST", body: options.body })
   }
 
   if (path === "/appointments/owner/mine") {

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { CalendarDays, CheckCircle2 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import apiRequest from "../../lib/api"
-import Logo from "../../components/Logo"
+import AdminSidebar from "../../components/AdminSidebar"
 
 export default function Settings() {
   const { user, logout } = useAuth()
@@ -63,7 +63,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#17221e]">
-      <AdminSidebar />
+      <AdminSidebar active="settings" />
 
       <main className="lg:ml-64">
         <header className="border-b border-[#e1e6e2] bg-white px-5 py-5 md:px-8">
@@ -181,39 +181,5 @@ function Row({ label, value, last }) {
       <span className="text-xs text-[#87928c]">{label}</span>
       <span className="text-sm font-semibold capitalize">{value}</span>
     </div>
-  )
-}
-
-function AdminSidebar() {
-  return (
-    <aside className="fixed bottom-0 left-0 top-0 hidden w-64 border-r border-[#e1e6e2] bg-white px-5 py-7 lg:block">
-      <Link to="/" className="px-3">
-        <Logo size={36} textClassName="block text-sm font-bold tracking-[0.17em]" subClassName="block text-[9px] tracking-wide text-[#87928c]" />
-      </Link>
-
-      <p className="mt-10 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#a0aaa5]">Clinic</p>
-
-      <nav className="mt-3 space-y-2">
-        <AdminNav to="/admin" label="⌂  Overview" />
-        <AdminNav to="/admin/appointments" label="📅  Appointments" />
-        <AdminNav to="/admin/patients" label="🐾  Patients" />
-        <AdminNav to="/admin/doctors" label="🩺  Doctors" />
-        <AdminNav to="/admin/services" label="✚  Services" />
-        <AdminNav to="/admin/settings" label="⚙  Settings" active />
-      </nav>
-    </aside>
-  )
-}
-
-function AdminNav({ to, label, active }) {
-  return (
-    <Link
-      to={to}
-      className={`block rounded-xl px-4 py-3 text-sm font-medium ${
-        active ? "bg-[#e7f0e9] text-[#285b4c]" : "text-[#718079] hover:bg-[#f5f7f5]"
-      }`}
-    >
-      {label}
-    </Link>
   )
 }

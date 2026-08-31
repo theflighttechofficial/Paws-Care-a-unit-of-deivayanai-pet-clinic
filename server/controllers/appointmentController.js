@@ -11,6 +11,7 @@ import {
   updateAppointmentStatus as applyStatusUpdate,
 } from "../db/appointments.js"
 import { listRecordsByPet } from "../db/medicalRecords.js"
+import { isDoctorOnLeave } from "../db/doctorLeaves.js"
 import { createGoogleCalendarEventForAppointment, getGoogleCalendarStatus } from "../lib/googleCalendar.js"
 
 // Postgres returns `time` columns as 24-hour strings ("09:00:00"); the
@@ -35,8 +36,11 @@ export const getBookedSlots = async (req, res) => {
     return res.status(400).json({ message: "doctorId and date are required." })
   }
 
-  const times = await listBookedTimesForDoctorDate(doctorId, date)
-  return res.json({ bookedTimes: times.map(formatTimeLabel) })
+  const [times, onLeave] = await Promise.all([
+    listBookedTimesForDoctorDate(doctorId, date),
+    isDoctorOnLeave(doctorId, date),
+  ])
+  return res.json({ bookedTimes: times.map(formatTimeLabel), onLeave })
 }
 
 export const getOwnerAppointments = async (req, res) => {
@@ -80,6 +84,11 @@ export const createOwnerAppointment = async (req, res) => {
   if (!doctor) return res.status(400).json({ message: "Selected doctor is unavailable." })
 
   const appointmentDate = new Date(date).toISOString().slice(0, 10)
+
+  const onLeave = await isDoctorOnLeave(doctorId, appointmentDate)
+  if (onLeave) {
+    return res.status(409).json({ message: "This doctor is on leave that day. Please choose another date." })
+  }
 
   const conflict = await findConflictingSlot(doctorId, appointmentDate, startTime)
   if (conflict) {

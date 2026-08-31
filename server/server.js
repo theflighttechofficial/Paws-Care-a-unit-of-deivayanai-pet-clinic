@@ -5,7 +5,9 @@ import connectDB from "./config/db.js"
 import adminRoutes from "./routes/adminRoutes.js"
 import authRoutes from "./routes/authRoutes.js"
 import appointmentRoutes from "./routes/appointmentRoutes.js"
+import leaveRoutes from "./routes/leaveRoutes.js"
 import medicalRecordRoutes from "./routes/medicalRecordRoutes.js"
+import paymentRoutes from "./routes/paymentRoutes.js"
 import petRoutes from "./routes/petRoutes.js"
 import { googleOAuthCallback } from "./controllers/googleAuthController.js"
 import { getGoogleCalendarStatus } from "./lib/googleCalendar.js"
@@ -27,6 +29,8 @@ app.use(express.json())
 app.use("/api/auth", authRoutes)
 app.use("/api/admin", adminRoutes)
 app.use("/api/appointments", appointmentRoutes)
+app.use("/api/leaves", leaveRoutes)
+app.use("/api/payments", paymentRoutes)
 app.use("/api/medical-records", medicalRecordRoutes)
 app.use("/api/pets", petRoutes)
 

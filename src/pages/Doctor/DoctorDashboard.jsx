@@ -6,6 +6,7 @@ import apiRequest from "../../lib/api"
 import { useAuth } from "../../context/AuthContext"
 import Logo from "../../components/Logo"
 import EmptyState from "../../components/EmptyState"
+import LeaveManager from "../../components/LeaveManager"
 
 const formatDate = (value) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date(value))
 
@@ -14,6 +15,8 @@ export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [leaves, setLeaves] = useState([])
+  const [leavesLoading, setLeavesLoading] = useState(true)
 
   useEffect(() => {
     apiRequest("/appointments/doctor/mine")
@@ -21,6 +24,29 @@ export default function DoctorDashboard() {
       .catch((requestError) => setError(requestError.message || "Unable to load appointments."))
       .finally(() => setLoading(false))
   }, [])
+
+  const loadLeaves = () => {
+    setLeavesLoading(true)
+    apiRequest("/leaves/mine")
+      .then((data) => setLeaves(data.leaves || []))
+      .catch(() => setLeaves([]))
+      .finally(() => setLeavesLoading(false))
+  }
+
+  useEffect(() => {
+    loadLeaves()
+  }, [])
+
+  const addLeave = async (date, reason) => {
+    await apiRequest("/leaves/mine", { method: "POST", body: JSON.stringify({ date, reason }) })
+    loadLeaves()
+  }
+
+  const removeLeave = async (leave) => {
+    const isoDate = new Date(leave.leave_date).toISOString().slice(0, 10)
+    await apiRequest(`/leaves/mine/${isoDate}`, { method: "DELETE" })
+    loadLeaves()
+  }
 
   const active = useMemo(() => appointments.filter((item) => !["completed", "cancelled"].includes(item.status)), [appointments])
   const online = active.filter((item) => item.type === "online").length
@@ -38,6 +64,10 @@ export default function DoctorDashboard() {
           <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] bg-[#173b31] p-7 text-white"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#a7c5b3]">Today&apos;s practice</p><h2 className="mt-3 text-2xl font-semibold">Your patient visits, in one place.</h2><p className="mt-2 text-xs text-[#c2d4ca]">Open an appointment to review a patient&apos;s history and record their consultation.</p></motion.section>
           <section className="mt-6 grid gap-4 sm:grid-cols-3"><Stat icon={CalendarDays} value={active.length} label="Active appointments" /><Stat icon={Video} value={online} label="Online consultations" /><Stat icon={Users} value={appointments.filter((item) => item.status === "completed").length} label="Completed visits" /></section>
           <section className="mt-7 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white"><div className="border-b border-[#edf0ed] px-6 py-5"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-[#4c806c]">Appointments</p><h2 className="mt-1 text-lg font-semibold">Your schedule</h2></div>{loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-[#f1f4f1]" />)}</div> : error ? <p className="p-6 text-sm text-[#a06b68]">{error}</p> : appointments.length ? <div className="p-3">{appointments.map((appointment) => <AppointmentRow key={appointment._id} appointment={appointment} />)}</div> : <div className="p-6"><EmptyState icon={PawPrint} title="No appointments yet" description="New appointments assigned to you will appear here." /></div>}</section>
+
+          <div className="mt-6">
+            <LeaveManager leaves={leaves} loading={leavesLoading} onAdd={addLeave} onRemove={removeLeave} />
+          </div>
         </div>
       </main>
     </div>

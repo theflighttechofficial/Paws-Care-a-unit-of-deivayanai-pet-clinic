@@ -74,6 +74,28 @@ create unique index if not exists appointments_doctor_slot_unique
   on public.appointments (doctor_id, appointment_date, appointment_time)
   where status <> 'cancelled';
 
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  appointment_id uuid references public.appointments(id) on delete set null,
+  purpose text not null check (purpose in ('online_consultation', 'phone_consultation')),
+  amount_paise integer not null,
+  razorpay_order_id text not null,
+  razorpay_payment_id text,
+  status text not null default 'created' check (status in ('created', 'paid', 'failed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.doctor_leaves (
+  id uuid primary key default gen_random_uuid(),
+  doctor_id uuid not null references public.doctors(id) on delete cascade,
+  leave_date date not null,
+  reason text,
+  created_at timestamptz not null default now(),
+  unique (doctor_id, leave_date)
+);
+
 create table if not exists public.medical_records (
   id uuid primary key default gen_random_uuid(),
   pet_id uuid not null references public.pets(id) on delete cascade,
