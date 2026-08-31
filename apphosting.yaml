@@ -1,0 +1,41 @@
+# Firebase App Hosting config. Docs: https://firebase.google.com/docs/app-hosting/configure
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+
+env:
+  # Frontend build-time var (Vite bakes this into the bundle at build time).
+  - variable: VITE_API_URL
+    value: /api
+
+  # Non-secret runtime config.
+  - variable: GOOGLE_CALENDAR_ID
+    value: varunvaibhav06@gmail.com
+  - variable: CLINIC_TIMEZONE
+    value: Asia/Kolkata
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    value: 600377782029-jfqeujt7kqkf8t66tkqog57lsqlutbjt.apps.googleusercontent.com
+  - variable: RAZORPAY_KEY_ID
+    value: rzp_test_TVuX7StpvgGkJ4
+
+  # TODO: replace with the real App Hosting backend URL once it's created
+  # (console shows it as https://<backend-id>--paws-care.<region>.hosted.app,
+  # or your custom domain if you attach one). Also re-register the redirect
+  # URI in Google Cloud Console's OAuth client once this is final.
+  - variable: FRONTEND_URL
+    value: https://paws-care.web.app
+  - variable: GOOGLE_OAUTH_REDIRECT_URI
+    value: https://paws-care.web.app/api/google/oauth/callback
+
+  # Secrets — set once via `firebase apphosting:secrets:set <NAME>`, then
+  # referenced here by name. Never put the actual values in this file.
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+  - variable: JWT_SECRET
+    secret: JWT_SECRET
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+  - variable: RESEND_API_KEY
+    secret: RESEND_API_KEY
+  - variable: RAZORPAY_KEY_SECRET
+    secret: RAZORPAY_KEY_SECRET
