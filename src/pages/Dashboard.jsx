@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowRight, CalendarDays, Plus, Video } from "lucide-react"
+import { ArrowRight, CalendarDays, CreditCard, Plus, Video } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import apiRequest from "../lib/api"
@@ -124,7 +124,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        <section className="mt-10 grid gap-4 sm:grid-cols-2">
+        <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link to="/booking" className="rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
             <CalendarDays className="text-[#4c806c]" />
             <h2 className="mt-4 font-semibold">Book Appointment</h2>
@@ -134,6 +134,11 @@ export default function Dashboard() {
             <Video className="text-[#4c806c]" />
             <h2 className="mt-4 font-semibold">Appointments</h2>
             <p className="mt-1 text-xs text-[#87928c]">View your upcoming and past visits.</p>
+          </Link>
+          <Link to="/payments" className="rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
+            <CreditCard className="text-[#4c806c]" />
+            <h2 className="mt-4 font-semibold">Payments</h2>
+            <p className="mt-1 text-xs text-[#87928c]">View receipts for past consultations.</p>
           </Link>
         </section>
       </main>

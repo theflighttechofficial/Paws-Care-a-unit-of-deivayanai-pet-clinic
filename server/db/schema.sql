@@ -66,6 +66,7 @@ create table if not exists public.appointments (
   google_meet_url text,
   google_sync_status text,
   notes text,
+  reminder_sent boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -74,17 +75,43 @@ create unique index if not exists appointments_doctor_slot_unique
   on public.appointments (doctor_id, appointment_date, appointment_time)
   where status <> 'cancelled';
 
+create table if not exists public.services (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  description text,
+  duration_minutes integer,
+  price_inr integer,
+  icon text not null default 'stethoscope',
+  phone_only boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references public.profiles(id) on delete cascade,
   appointment_id uuid references public.appointments(id) on delete set null,
-  purpose text not null check (purpose in ('online_consultation', 'phone_consultation')),
+  purpose text not null check (purpose in ('online_consultation', 'phone_consultation', 'clinic_visit')),
   amount_paise integer not null,
-  razorpay_order_id text not null,
+  razorpay_order_id text,
   razorpay_payment_id text,
   status text not null default 'created' check (status in ('created', 'paid', 'failed')),
+  method text not null default 'razorpay' check (method in ('razorpay', 'cash', 'card', 'upi', 'other')),
+  recorded_by uuid references public.profiles(id),
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.appointment_ratings (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid not null unique references public.appointments(id) on delete cascade,
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  rating integer not null check (rating between 1 and 5),
+  feedback text,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.doctor_leaves (

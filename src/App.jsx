@@ -238,7 +238,7 @@ function App() {
               <div className="mt-12 flex flex-wrap gap-8 border-t border-[#dfe5e0] pt-7">
                 <Stat value="5K+" label="Pets cared for" />
                 <Stat value="4.9/5" label="Pet owner rating" />
-                <Stat value="10+" label="Years of care" />
+                <Stat value="20+" label="Years of care" />
               </div>
             </motion.div>
 
@@ -348,7 +348,7 @@ function App() {
                 />
 
                 <div className="absolute bottom-6 right-6 rounded-3xl bg-white p-5 shadow-2xl">
-                  <p className="text-3xl font-semibold">10+</p>
+                  <p className="text-3xl font-semibold">20+</p>
                   <p className="mt-1 text-xs text-[#718079]">
                     years caring for pets
                   </p>

@@ -56,7 +56,16 @@ export const updatePet = async (req, res) => {
 }
 
 export const deletePet = async (req, res) => {
-  const deleted = await removePet(req.params.id, req.user.id)
-  if (!deleted) return res.status(404).json({ message: "Pet not found." })
-  return res.json({ message: "Pet deleted successfully." })
+  try {
+    const deleted = await removePet(req.params.id, req.user.id)
+    if (!deleted) return res.status(404).json({ message: "Pet not found." })
+    return res.json({ message: "Pet deleted successfully." })
+  } catch (error) {
+    if (error.code === "23503") {
+      return res.status(409).json({
+        message: "This pet has appointment history and can't be deleted. Contact the clinic if you need it removed.",
+      })
+    }
+    throw error
+  }
 }

@@ -3,9 +3,9 @@ import {
   CalendarDays,
   ChevronDown,
   Filter,
-  MoreHorizontal,
   Search,
   Video,
+  XCircle,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import apiRequest from "../../lib/api"
@@ -23,6 +23,7 @@ export default function Appointments() {
 
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("All")
+  const [markPaidTarget, setMarkPaidTarget] = useState(null)
 
   useEffect(() => {
     apiRequest("/admin/appointments")
@@ -61,6 +62,21 @@ export default function Appointments() {
       setAppointments(previous)
       setError(requestError.message || "Unable to update appointment status.")
     }
+  }
+
+  const recordPayment = async (form) => {
+    const response = await apiRequest("/admin/payments", {
+      method: "POST",
+      body: JSON.stringify({ appointmentId: markPaidTarget._id, ...form }),
+    })
+    setAppointments((current) =>
+      current.map((appointment) =>
+        appointment._id === markPaidTarget._id
+          ? { ...appointment, paymentStatus: response.payment.status, paymentMethod: response.payment.method }
+          : appointment
+      )
+    )
+    setMarkPaidTarget(null)
   }
 
   return (
@@ -165,12 +181,13 @@ export default function Appointments() {
           {/* APPOINTMENTS */}
 
           <div className="mt-6 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white">
-            <div className="hidden grid-cols-[100px_1.1fr_1fr_1fr_120px_40px] gap-4 border-b border-[#edf0ed] bg-[#fafbfa] px-6 py-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9aa59f] md:grid">
+            <div className="hidden grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_80px] gap-4 border-b border-[#edf0ed] bg-[#fafbfa] px-6 py-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9aa59f] md:grid">
               <span>Time</span>
               <span>Patient</span>
               <span>Service</span>
               <span>Doctor</span>
               <span>Status</span>
+              <span>Payment</span>
               <span />
             </div>
 
@@ -188,6 +205,7 @@ export default function Appointments() {
                   key={appointment._id}
                   appointment={appointment}
                   onStatusChange={updateStatus}
+                  onMarkPaid={setMarkPaidTarget}
                 />
               ))}
 
@@ -200,6 +218,14 @@ export default function Appointments() {
           </div>
         </div>
       </main>
+
+      {markPaidTarget && (
+        <MarkPaidModal
+          appointment={markPaidTarget}
+          onClose={() => setMarkPaidTarget(null)}
+          onSave={recordPayment}
+        />
+      )}
     </div>
   )
 }
@@ -209,10 +235,25 @@ const petEmoji = { Dog: "🐕", Cat: "🐈", Bird: "🦜", Rabbit: "🐇", Other
 function AppointmentRow({
   appointment,
   onStatusChange,
+  onMarkPaid,
 }) {
+  const paymentLabel = {
+    paid: "Paid",
+    created: "Awaiting payment",
+    failed: "Payment failed",
+  }[appointment.paymentStatus] || "Not required"
+
+  const paymentStyle = {
+    paid: "bg-[#e6f1e9] text-[#285b4c]",
+    created: "bg-amber-50 text-amber-700",
+    failed: "bg-red-50 text-red-600",
+  }[appointment.paymentStatus] || "bg-[#f3f5f3] text-[#87928c]"
+
+  const canCancel = !["cancelled", "completed"].includes(appointment.status)
+
   return (
     <div className="border-b border-[#edf0ed] px-6 py-5 last:border-0">
-      <div className="grid gap-5 md:grid-cols-[100px_1.1fr_1fr_1fr_120px_40px] md:items-center md:gap-4">
+      <div className="grid gap-5 md:grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_80px] md:items-center md:gap-4">
         <div>
           <p className="text-sm font-semibold">
             {appointment.startTime}
@@ -281,10 +322,105 @@ function AppointmentRow({
           </select>
         </div>
 
-        <button className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[#f3f5f3]">
-          <MoreHorizontal size={16} />
+        <div className="flex flex-col items-start gap-1">
+          <span className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${paymentStyle}`}>
+            {paymentLabel}
+          </span>
+          {appointment.paymentStatus !== "paid" && appointment.status !== "cancelled" && (
+            <button
+              onClick={() => onMarkPaid(appointment)}
+              className="text-[10px] font-semibold text-[#285b4c] underline underline-offset-2"
+            >
+              Mark as paid
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => canCancel && onStatusChange(appointment._id, "cancelled")}
+          disabled={!canCancel}
+          title={canCancel ? "Cancel booking" : "Already cancelled or completed"}
+          className="flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <XCircle size={12} />
+          Cancel
         </button>
       </div>
+    </div>
+  )
+}
+
+function MarkPaidModal({ appointment, onClose, onSave }) {
+  const [amount, setAmount] = useState("")
+  const [method, setMethod] = useState("cash")
+  const [notes, setNotes] = useState("")
+  const [error, setError] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setError("")
+    try {
+      await onSave({ amount: Number(amount), method, notes })
+    } catch (err) {
+      setError(err.message || "Unable to record payment.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#10241d]/30 p-4 backdrop-blur-sm">
+      <form onSubmit={submit} className="w-full max-w-md rounded-[2rem] bg-white p-7">
+        <h2 className="text-xl font-semibold">Mark as paid</h2>
+        <p className="mt-2 text-sm text-[#718079]">
+          {appointment.pet?.name} · {appointment.service} · {appointment.owner?.name}
+        </p>
+
+        {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+
+        <label className="mt-5 block text-xs font-semibold">
+          Amount (₹)
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            required
+            className="mt-2 w-full rounded-xl border p-3 text-sm"
+          />
+        </label>
+
+        <label className="mt-4 block text-xs font-semibold">
+          Method
+          <select value={method} onChange={(event) => setMethod(event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm">
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="upi">UPI</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <label className="mt-4 block text-xs font-semibold">
+          Notes (optional)
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            className="mt-2 min-h-16 w-full rounded-xl border p-3 text-sm"
+          />
+        </label>
+
+        <div className="mt-6 flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 rounded-full border py-3 text-xs font-semibold">
+            Cancel
+          </button>
+          <button disabled={saving} className="flex-1 rounded-full bg-[#173b31] py-3 text-xs font-semibold text-white disabled:opacity-50">
+            {saving ? "Saving…" : "Confirm payment"}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
   getOwnerAppointments,
   updateAppointmentStatus,
 } from "../controllers/appointmentController.js"
+import { submitRating } from "../controllers/ratingController.js"
 import { protect, requireRole } from "../middleware/authMiddleware.js"
 
 const router = express.Router()
@@ -23,5 +24,6 @@ router.get("/:id", protect, getAppointmentById)
 router.patch("/:id/status", protect, updateAppointmentStatus)
 router.patch("/:id/cancel", protect, cancelOwnerAppointment)
 router.patch("/:id/complete", protect, requireRole("doctor"), completeDoctorAppointment)
+router.post("/:id/rating", protect, requireRole("owner"), submitRating)
 
 export default router

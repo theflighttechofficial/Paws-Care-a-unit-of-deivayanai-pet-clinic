@@ -5,10 +5,16 @@ const APPOINTMENT_SELECT = `
     a.*,
     (
       select p.status from public.payments p
-      where p.appointment_id = a.id and p.purpose = 'online_consultation'
+      where p.appointment_id = a.id
       order by p.created_at desc
       limit 1
     ) as payment_status,
+    (
+      select p.method from public.payments p
+      where p.appointment_id = a.id
+      order by p.created_at desc
+      limit 1
+    ) as payment_method,
     row_to_json(pt.*) as pet,
     json_build_object(
       'id', op.id,
@@ -45,6 +51,7 @@ const shapeAppointmentRow = (row) => ({
   duration: row.duration,
   status: row.status,
   payment_status: row.payment_status,
+  payment_method: row.payment_method,
   google_calendar_event_id: row.google_calendar_event_id,
   google_meet_url: row.google_meet_url,
   google_sync_status: row.google_sync_status,
@@ -169,4 +176,39 @@ export const countAppointmentsByStatus = async (status) => {
     [status]
   )
   return rows[0].count
+}
+
+// Idempotent bootstrap, same pattern as services/payments.
+export const ensureReminderColumn = async () => {
+  await pool.query("alter table public.appointments add column if not exists reminder_sent boolean not null default false")
+}
+
+// Appointments starting within the next 24h that haven't had a reminder
+// sent yet, joined with the details a reminder email needs.
+export const listAppointmentsDueForReminder = async () => {
+  const { rows } = await pool.query(`
+    select
+      a.id,
+      a.service,
+      a.consultation_type,
+      a.appointment_date,
+      a.appointment_time,
+      op.email as owner_email,
+      op.full_name as owner_name,
+      pt.name as pet_name,
+      dp.full_name as doctor_name
+    from public.appointments a
+    join public.profiles op on op.id = a.owner_id
+    join public.pets pt on pt.id = a.pet_id
+    join public.doctors d on d.id = a.doctor_id
+    join public.profiles dp on dp.id = d.profile_id
+    where a.reminder_sent = false
+      and a.status in ('pending', 'confirmed')
+      and (a.appointment_date + a.appointment_time) between localtimestamp and localtimestamp + interval '24 hours'
+  `)
+  return rows
+}
+
+export const markReminderSent = async (id) => {
+  await pool.query("update public.appointments set reminder_sent = true where id = $1", [id])
 }

@@ -1,10 +1,17 @@
 import crypto from "crypto"
 import Razorpay from "razorpay"
-import { createPaymentRecord, findPaymentById, markPaymentPaid } from "../db/payments.js"
+import { createManualPayment, createPaymentRecord, findPaymentById, listAllPayments, listPaymentsByOwner, markPaymentPaid } from "../db/payments.js"
 import { findAppointmentById } from "../db/appointments.js"
 
 const CONSULTATION_FEE_PAISE = 20000 // ₹200, flat fee for online/phone consultations
 const VALID_PURPOSES = ["online_consultation", "phone_consultation"]
+const VALID_METHODS = ["cash", "card", "upi", "other"]
+
+const purposeForConsultationType = (type) => {
+  if (type === "online") return "online_consultation"
+  if (type === "phone") return "phone_consultation"
+  return "clinic_visit"
+}
 
 const getClient = () => {
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
@@ -97,4 +104,57 @@ export const verifyPayment = async (req, res) => {
     console.error("Verify payment error:", error)
     return res.status(500).json({ message: "Unable to verify payment. Please try again." })
   }
+}
+
+export const getMyPayments = async (req, res) => {
+  try {
+    const payments = await listPaymentsByOwner(req.user.id)
+    return res.json({ success: true, payments })
+  } catch (error) {
+    console.error("List owner payments error:", error)
+    return res.status(500).json({ message: "Unable to load your payment history." })
+  }
+}
+
+export const getAllPayments = async (req, res) => {
+  try {
+    const payments = await listAllPayments()
+    return res.json({ success: true, payments })
+  } catch (error) {
+    console.error("List admin payments error:", error)
+    return res.status(500).json({ message: "Unable to load payments." })
+  }
+}
+
+export const recordManualPayment = async (req, res) => {
+  const { appointmentId, amount, method, notes } = req.body
+
+  if (!appointmentId) {
+    return res.status(400).json({ message: "An appointment is required." })
+  }
+
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    return res.status(400).json({ message: "Amount must be a positive number." })
+  }
+
+  if (!VALID_METHODS.includes(method)) {
+    return res.status(400).json({ message: "A valid payment method is required." })
+  }
+
+  const appointment = await findAppointmentById(appointmentId)
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found." })
+  }
+
+  const payment = await createManualPayment({
+    ownerId: appointment.owner_id,
+    appointmentId,
+    amountPaise: Math.round(Number(amount) * 100),
+    method,
+    notes,
+    recordedBy: req.user.id,
+    purpose: purposeForConsultationType(appointment.consultation_type),
+  })
+
+  return res.status(201).json({ message: "Payment recorded.", payment })
 }

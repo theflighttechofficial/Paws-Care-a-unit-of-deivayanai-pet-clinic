@@ -36,4 +36,40 @@ export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
   }
 }
 
-export default { sendPasswordResetEmail }
+const formatReminderDate = (date, time) => {
+  const [hourStr, minuteStr] = time.split(":")
+  let hour = parseInt(hourStr, 10)
+  const suffix = hour >= 12 ? "PM" : "AM"
+  hour = hour % 12 || 12
+  const dateLabel = new Date(date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
+  return `${dateLabel} at ${hour}:${minuteStr} ${suffix}`
+}
+
+export const sendAppointmentReminderEmail = async (toEmail, appointment) => {
+  if (!resend) {
+    throw new Error("RESEND_API_KEY is not configured.")
+  }
+
+  const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: `Reminder: ${appointment.pet_name}'s appointment tomorrow`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color:#173b31;">Upcoming appointment reminder</h2>
+        <p>This is a reminder that <strong>${appointment.pet_name}</strong> has a <strong>${appointment.service}</strong> appointment coming up.</p>
+        <p style="color:#173b31;font-weight:600;">${when}</p>
+        <p>With ${appointment.doctor_name} · ${appointment.consultation_type} consultation</p>
+        <p style="color:#718079;font-size:13px;">See you soon at Paws & Care.</p>
+      </div>
+    `,
+  })
+
+  if (error) {
+    throw new Error(error.message || "Failed to send reminder email.")
+  }
+}
+
+export default { sendPasswordResetEmail, sendAppointmentReminderEmail }

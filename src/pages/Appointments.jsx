@@ -555,7 +555,6 @@ function StatusBadge({ status }) {
 function EmptyState({ tab }) {
   return (
     <AnimatedEmptyState
-      icon={CalendarDays}
       title={`No ${tab.toLowerCase()} appointments`}
       description={
         tab === "Upcoming"
@@ -629,7 +628,6 @@ function DetailsModal({
           />
 
           <DetailItem
-            icon={CalendarDays}
             label="Date"
             value={fullDate(appointment.date)}
           />

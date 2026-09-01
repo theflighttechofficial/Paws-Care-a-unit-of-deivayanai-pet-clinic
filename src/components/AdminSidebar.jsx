@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { key: "patients", to: "/admin/patients", label: "🐾  Patients" },
   { key: "doctors", to: "/admin/doctors", label: "🩺  Doctors" },
   { key: "services", to: "/admin/services", label: "✚  Services" },
+  { key: "payments", to: "/admin/payments", label: "💳  Payments" },
+  { key: "feedback", to: "/admin/feedback", label: "★  Feedback" },
   { key: "settings", to: "/admin/settings", label: "⚙  Settings" },
 ]
 

@@ -1,6 +1,11 @@
 import pg from "pg"
 import dotenv from "dotenv"
 
+import { ensureServicesTable } from "../db/services.js"
+import { ensureReminderColumn } from "../db/appointments.js"
+import { ensurePaymentsExtensions } from "../db/payments.js"
+import { ensureRatingsTable } from "../db/ratings.js"
+
 // Must run before the Pool below reads process.env.DATABASE_URL — ESM
 // imports are evaluated before the importing module's own top-level code,
 // so relying on the importer (server.js, scripts/*) to call dotenv.config()
@@ -25,6 +30,10 @@ const connectDB = async () => {
     const result = await client.query("select now()")
     client.release()
     console.log(`Postgres connected: ${result.rows[0].now}`)
+    await ensureServicesTable()
+    await ensureReminderColumn()
+    await ensurePaymentsExtensions()
+    await ensureRatingsTable()
     return pool
   } catch (error) {
     console.error("Postgres connection failed:", error.message)

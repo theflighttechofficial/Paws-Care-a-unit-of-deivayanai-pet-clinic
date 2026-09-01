@@ -36,6 +36,50 @@ const normalizeDoctor = (doctor, profile) => {
   }
 }
 
+const normalizeService = (service) => ({
+  ...service,
+  _id: service.id,
+  id: service.id,
+  title: service.title || "",
+  description: service.description || "",
+  duration: service.duration ?? null,
+  price: service.price ?? null,
+  icon: service.icon || "stethoscope",
+  phoneOnly: Boolean(service.phoneOnly),
+  sortOrder: service.sortOrder ?? 0,
+})
+
+const normalizeRating = (rating) => ({
+  ...rating,
+  _id: rating.id,
+  id: rating.id,
+  appointmentId: rating.appointment_id,
+  rating: rating.rating,
+  feedback: rating.feedback || "",
+  service: rating.service,
+  date: rating.appointment_date,
+  petName: rating.pet?.name || "",
+  ownerName: rating.owner?.full_name || "",
+  doctorName: rating.doctor_name || "",
+  createdAt: rating.created_at,
+})
+
+const normalizePayment = (payment) => ({
+  ...payment,
+  _id: payment.id,
+  id: payment.id,
+  amount: (payment.amount_paise ?? 0) / 100,
+  status: payment.status,
+  method: payment.method || "razorpay",
+  purpose: payment.purpose,
+  service: payment.service || "",
+  petName: payment.pet?.name || "",
+  ownerName: payment.owner?.full_name || "",
+  date: payment.appointment_date,
+  notes: payment.notes || "",
+  createdAt: payment.created_at,
+})
+
 const normalizeMedicalRecord = (record) => {
   const rawPrescription = Array.isArray(record.prescription)
     ? record.prescription
@@ -280,7 +324,19 @@ export async function apiRequest(path, options = {}) {
     return { message: data.message, appointment: normalizeAppointment(data.appointment) }
   }
 
-  if (path.startsWith("/appointments/") && !path.includes("/status") && !path.includes("/cancel") && !path.includes("/complete") && method === "GET") {
+  if (path.startsWith("/appointments/") && path.includes("/rating") && method === "POST") {
+    const data = await request(path, { method: "POST", body: options.body })
+    return { message: data.message, rating: normalizeRating(data.rating) }
+  }
+
+  if (
+    path.startsWith("/appointments/") &&
+    !path.includes("/status") &&
+    !path.includes("/cancel") &&
+    !path.includes("/complete") &&
+    !path.includes("/rating") &&
+    method === "GET"
+  ) {
     const data = await request(path)
     return {
       appointment: normalizeAppointment(data.appointment),
@@ -291,6 +347,25 @@ export async function apiRequest(path, options = {}) {
   if (path === "/medical-records" && method === "POST") {
     const data = await request("/medical-records", { method: "POST", body: options.body })
     return { message: data.message, medicalRecord: normalizeMedicalRecord(data.medicalRecord) }
+  }
+
+  if (path === "/services" && method === "GET") {
+    const data = await request("/services")
+    return { services: (data.services || []).map(normalizeService) }
+  }
+
+  if (path === "/services" && method === "POST") {
+    const data = await request("/services", { method: "POST", body: options.body })
+    return { message: data.message, service: normalizeService(data.service) }
+  }
+
+  if (path.startsWith("/services/") && method === "PUT") {
+    const data = await request(path, { method: "PUT", body: options.body })
+    return { message: data.message, service: normalizeService(data.service) }
+  }
+
+  if (path.startsWith("/services/") && method === "DELETE") {
+    return request(path, { method: "DELETE" })
   }
 
   if (path === "/admin/stats") {
@@ -305,6 +380,26 @@ export async function apiRequest(path, options = {}) {
   if (path === "/admin/patients") {
     const data = await request("/admin/patients")
     return { success: true, pets: (data.pets || []).map(normalizePet) }
+  }
+
+  if (path === "/admin/payments" && method === "GET") {
+    const data = await request("/admin/payments")
+    return { success: true, payments: (data.payments || []).map(normalizePayment) }
+  }
+
+  if (path === "/admin/payments" && method === "POST") {
+    const data = await request("/admin/payments", { method: "POST", body: options.body })
+    return { message: data.message, payment: normalizePayment(data.payment) }
+  }
+
+  if (path === "/admin/ratings") {
+    const data = await request("/admin/ratings")
+    return { success: true, ratings: (data.ratings || []).map(normalizeRating) }
+  }
+
+  if (path === "/payments/mine") {
+    const data = await request("/payments/mine")
+    return { success: true, payments: (data.payments || []).map(normalizePayment) }
   }
 
   if (path === "/admin/google/connect") {

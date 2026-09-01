@@ -1,10 +1,9 @@
 import { motion } from "framer-motion"
-import { PawPrint } from "lucide-react"
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 
 // Reusable animated empty state. Drop into any list/table page:
 // {!loading && items.length === 0 && <EmptyState title="..." description="..." />}
 export default function EmptyState({
-  icon: Icon = PawPrint,
   title = "Nothing here yet",
   description = "",
   action = null,
@@ -21,14 +20,9 @@ export default function EmptyState({
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#e2eee6] text-[#285b4c]"
+        className="h-40 w-40"
       >
-        <motion.span
-          animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.15, 0.5] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-0 rounded-full bg-[#4c806c]/20"
-        />
-        <Icon size={26} />
+        <DotLottieReact src="/puppy-sleeping.lottie" loop autoplay />
       </motion.div>
 
       <motion.h3

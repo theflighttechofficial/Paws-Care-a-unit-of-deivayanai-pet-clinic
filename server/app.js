@@ -10,6 +10,7 @@ import leaveRoutes from "./routes/leaveRoutes.js"
 import medicalRecordRoutes from "./routes/medicalRecordRoutes.js"
 import paymentRoutes from "./routes/paymentRoutes.js"
 import petRoutes from "./routes/petRoutes.js"
+import serviceRoutes from "./routes/serviceRoutes.js"
 import { googleOAuthCallback } from "./controllers/googleAuthController.js"
 import { getGoogleCalendarStatus } from "./lib/googleCalendar.js"
 
@@ -37,6 +38,7 @@ app.use("/api/leaves", leaveRoutes)
 app.use("/api/payments", paymentRoutes)
 app.use("/api/medical-records", medicalRecordRoutes)
 app.use("/api/pets", petRoutes)
+app.use("/api/services", serviceRoutes)
 
 // Hit directly by Google's OAuth redirect — must stay outside the
 // JWT-protected /api/admin router (no Authorization header is available

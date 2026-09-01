@@ -6,13 +6,10 @@ import {
   Check,
   ChevronLeft,
   Clock3,
-  Heart,
   MapPin,
   Phone,
-  Scissors,
-  Stethoscope,
+  Star,
   Video,
-  PawPrint,
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -22,6 +19,7 @@ import Logo from "../components/Logo"
 import EmptyState from "../components/EmptyState"
 import PaymentGate from "../components/PaymentGate"
 import { CLINIC_PHONE_DISPLAY, CLINIC_PHONE_TEL } from "../lib/clinicInfo"
+import { getServiceIcon } from "../lib/serviceIcons"
 
 /* Legacy mock pet data intentionally disabled: choices load from /api/pets. */
 /*
@@ -42,48 +40,6 @@ const unusedLegacyPets = [
   },
 ]
 */
-
-const services = [
-  {
-    id: "general",
-    title: "General Consultation",
-    description: "Routine checkups, symptoms and general health concerns.",
-    duration: "30 min",
-    price: "₹600",
-    icon: Stethoscope,
-  },
-  {
-    id: "vaccination",
-    title: "Vaccination",
-    description: "Essential vaccinations and preventive care.",
-    duration: "20 min",
-    price: "₹450",
-    icon: Heart,
-  },
-  {
-    id: "dental",
-    title: "Dental Care",
-    description: "Dental examination, cleaning and oral health.",
-    duration: "30 min",
-    price: "₹800",
-    icon: PawPrint,
-  },
-  {
-    id: "followup",
-    title: "Follow-up",
-    description: "Review an existing condition or previous consultation.",
-    duration: "20 min",
-    price: "₹400",
-    icon: CalendarDays,
-  },
-  {
-    id: "surgery",
-    title: "Surgery",
-    description: "Surgical procedures need a phone consultation first — no online slot booking.",
-    icon: Scissors,
-    phoneOnly: true,
-  },
-]
 
 const SLOT_INTERVAL_MINUTES = 15
 const MORNING_SESSION = { startHour: 9, endHour: 13 }
@@ -148,6 +104,9 @@ export default function Booking() {
   const [bookedTimes, setBookedTimes] = useState([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [doctorOnLeave, setDoctorOnLeave] = useState(false)
+  const [services, setServices] = useState([])
+  const [servicesLoading, setServicesLoading] = useState(true)
+  const [servicesError, setServicesError] = useState("")
 
   const isPhoneConsultation = selectedType?.id === "phone"
   const isSurgery = selectedService?.phoneOnly
@@ -172,6 +131,13 @@ export default function Booking() {
       })
       .finally(() => setDoctorsLoading(false))
   }, [authLoading, user?.id])
+
+  useEffect(() => {
+    apiRequest("/services")
+      .then((response) => setServices(response.services || []))
+      .catch((error) => setServicesError(error.message || "Unable to load services."))
+      .finally(() => setServicesLoading(false))
+  }, [])
 
   useEffect(() => {
     const doctorId = selectedDoctor?._id || selectedDoctor?.id
@@ -415,54 +381,64 @@ export default function Booking() {
                       description="Choose the service that best matches your visit."
                     />
 
+                    {servicesError && (
+                      <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{servicesError}</p>
+                    )}
+
                     <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                      {services.map((service) => {
-                        const Icon = service.icon
+                      {servicesLoading &&
+                        [1, 2, 3, 4].map((item) => (
+                          <div key={item} className="h-32 animate-pulse rounded-[1.75rem] bg-[#f1f4f1]" />
+                        ))}
 
-                        return (
-                          <SelectionCard
-                            key={service.id}
-                            selected={
-                              selectedService?.id === service.id
-                            }
-                            onClick={() =>
-                              setSelectedService(service)
-                            }
-                          >
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f0e9] text-[#285b4c]">
-                              <Icon size={19} />
-                            </div>
+                      {!servicesLoading &&
+                        services.map((service) => {
+                          const Icon = getServiceIcon(service.icon)
 
-                            <div className="flex-1">
-                              <h3 className="font-semibold">
-                                {service.title}
-                              </h3>
-
-                              <p className="mt-1 text-xs leading-5 text-[#87928c]">
-                                {service.description}
-                              </p>
-
-                              {service.phoneOnly ? (
-                                <p className="mt-3 text-[10px] font-semibold text-[#4c806c]">
-                                  We'll skip the slot picker — you'll call {CLINIC_PHONE_DISPLAY} directly
-                                </p>
-                              ) : (
-                                <div className="mt-3 flex gap-3 text-[10px] text-[#718079]">
-                                  <span>{service.duration}</span>
-                                  <span>•</span>
-                                  <span>Est. {service.price}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <SelectionIndicator
+                          return (
+                            <SelectionCard
+                              key={service.id}
                               selected={
                                 selectedService?.id === service.id
                               }
-                            />
-                          </SelectionCard>
-                        )
-                      })}
+                              onClick={() =>
+                                setSelectedService(service)
+                              }
+                            >
+                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f0e9] text-[#285b4c]">
+                                <Icon size={19} />
+                              </div>
+
+                              <div className="flex-1">
+                                <h3 className="font-semibold">
+                                  {service.title}
+                                </h3>
+
+                                <p className="mt-1 text-xs leading-5 text-[#87928c]">
+                                  {service.description}
+                                </p>
+
+                                {service.phoneOnly ? (
+                                  <p className="mt-3 text-[10px] font-semibold text-[#4c806c]">
+                                    We'll skip the slot picker — you'll call {CLINIC_PHONE_DISPLAY} directly
+                                  </p>
+                                ) : (
+                                  <div className="mt-3 flex gap-3 text-[10px] text-[#718079]">
+                                    <span>{service.duration} min</span>
+                                    <span>•</span>
+                                    <span>Est. ₹{service.price}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <SelectionIndicator
+                                selected={
+                                  selectedService?.id === service.id
+                                }
+                              />
+                            </SelectionCard>
+                          )
+                        })}
                     </div>
                   </StepContainer>
                 )}
@@ -1220,6 +1196,8 @@ function SuccessScreen({
         </a>
       )}
 
+      {appointment && <RatingPrompt appointmentId={appointment._id || appointment.id} />}
+
       <button
         onClick={onDashboard}
         className="mt-4 rounded-full bg-[#173b31] px-7 py-3.5 text-xs font-semibold text-white"
@@ -1227,5 +1205,85 @@ function SuccessScreen({
         Go to Dashboard
       </button>
     </motion.div>
+  )
+}
+
+function RatingPrompt({ appointmentId }) {
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [feedback, setFeedback] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState("")
+
+  const submit = async () => {
+    if (!rating) return
+    setSubmitting(true)
+    setError("")
+    try {
+      await apiRequest(`/appointments/${appointmentId}/rating`, {
+        method: "POST",
+        body: JSON.stringify({ rating, feedback }),
+      })
+      setSubmitted(true)
+    } catch (err) {
+      setError(err.message || "Unable to submit your rating.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="mt-5 rounded-2xl bg-[#edf4ef] p-6 text-left">
+        <p className="text-sm font-semibold text-[#173b31]">Thanks for the feedback! 🎉</p>
+        <p className="mt-1 text-xs text-[#718079]">It helps us keep improving your booking experience.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-[#e1e7e2] bg-white p-6 text-left">
+      <p className="text-sm font-semibold">How was your booking experience?</p>
+      <p className="mt-1 text-xs text-[#87928c]">Rate it before you go — it only takes a second.</p>
+
+      <div className="mt-4 flex gap-1">
+        {[1, 2, 3, 4, 5].map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setRating(value)}
+            onMouseEnter={() => setHoverRating(value)}
+            onMouseLeave={() => setHoverRating(0)}
+            aria-label={`Rate ${value} out of 5`}
+            className="p-0.5"
+          >
+            <Star
+              size={26}
+              className={(hoverRating || rating) >= value ? "fill-[#eab308] text-[#eab308]" : "text-[#d5dfd8]"}
+            />
+          </button>
+        ))}
+      </div>
+
+      {rating > 0 && (
+        <textarea
+          value={feedback}
+          onChange={(event) => setFeedback(event.target.value)}
+          placeholder="Anything you'd like to tell us? (optional)"
+          className="mt-4 min-h-20 w-full rounded-xl border border-[#dfe6e1] p-3 text-sm outline-none focus:border-[#4c806c]"
+        />
+      )}
+
+      {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
+
+      <button
+        onClick={submit}
+        disabled={!rating || submitting}
+        className="mt-4 rounded-full bg-[#173b31] px-5 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
+      >
+        {submitting ? "Submitting…" : "Submit rating"}
+      </button>
+    </div>
   )
 }
