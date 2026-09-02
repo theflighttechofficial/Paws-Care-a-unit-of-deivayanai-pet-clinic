@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
-import { clearConnection, getConnection, upsertConnection } from "../db/googleAuth.js"
-import { buildGoogleOAuthClient } from "../lib/googleCalendar.js"
+import { clearConnection, upsertConnection } from "../db/googleAuth.js"
+import { buildGoogleOAuthClient, verifyGoogleConnection } from "../lib/googleCalendar.js"
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
@@ -79,10 +79,20 @@ export const googleOAuthCallback = async (req, res) => {
 }
 
 export const getGoogleConnectionStatus = async (req, res) => {
-  const connection = await getConnection()
+  const status = await verifyGoogleConnection()
+
+  // A stored refresh token that Google no longer honors (revoked, or the
+  // consent expired) is as good as disconnected — clear it so the admin
+  // sees an accurate "not connected" state instead of a stale "Connected"
+  // that silently fails on every booking.
+  if (!status.connected && status.email) {
+    await clearConnection()
+  }
+
   return res.json({
-    connected: Boolean(connection?.refresh_token),
-    email: connection?.connected_email || null,
+    connected: status.connected,
+    email: status.connected ? status.email : null,
+    error: status.error || null,
   })
 }
 

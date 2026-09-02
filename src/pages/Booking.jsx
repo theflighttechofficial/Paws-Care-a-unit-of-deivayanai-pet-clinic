@@ -11,7 +11,8 @@ import {
   Star,
   Video,
 } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 import { useAuth } from "../context/AuthContext"
 import apiRequest from "../lib/api"
 import { buildGoogleCalendarLink } from "../lib/googleCalendarLink"
@@ -86,6 +87,8 @@ const consultationTypes = [
 
 export default function Booking() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const preselectedPetId = searchParams.get("petId")
   const { user, loading: authLoading, logout } = useAuth()
 
   const [step, setStep] = useState(1)
@@ -117,7 +120,14 @@ export default function Booking() {
     }
 
     apiRequest("/pets")
-      .then((response) => setPets(response.pets || []))
+      .then((response) => {
+        const loadedPets = response.pets || []
+        setPets(loadedPets)
+        if (preselectedPetId) {
+          const match = loadedPets.find((pet) => (pet._id || pet.id) === preselectedPetId)
+          if (match) setSelectedPet(match)
+        }
+      })
       .catch((error) => {
         console.error("Failed to load pets for booking:", { message: error.message, userId: user?.id })
         setBookingError("Unable to load your pets. Please try again.")
@@ -1079,8 +1089,8 @@ function SuccessScreen({
       animate={{ opacity: 1, scale: 1 }}
       className="mx-auto max-w-2xl text-center"
     >
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#dcebe1] text-[#285b4c]">
-        <Check size={32} />
+      <div className="mx-auto h-40 w-40">
+        <DotLottieReact src="/love-dog.lottie" loop autoplay />
       </div>
 
       <p className="mt-8 text-xs font-bold uppercase tracking-[0.2em] text-[#4c806c]">

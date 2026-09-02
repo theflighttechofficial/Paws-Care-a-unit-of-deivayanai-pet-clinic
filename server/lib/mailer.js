@@ -72,4 +72,31 @@ export const sendAppointmentReminderEmail = async (toEmail, appointment) => {
   }
 }
 
-export default { sendPasswordResetEmail, sendAppointmentReminderEmail }
+export const sendDoctorNewAppointmentEmail = async (toEmail, appointment) => {
+  if (!resend) {
+    throw new Error("RESEND_API_KEY is not configured.")
+  }
+
+  const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: `New appointment: ${appointment.pet_name} on ${when}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color:#173b31;">You have a new appointment</h2>
+        <p><strong>${appointment.owner_name}</strong> booked a <strong>${appointment.service}</strong> visit for <strong>${appointment.pet_name}</strong>.</p>
+        <p style="color:#173b31;font-weight:600;">${when}</p>
+        <p>${appointment.consultation_type === "online" ? "Online consultation" : "In-clinic visit"}</p>
+        <p style="color:#718079;font-size:13px;">This has also been added to your Google Calendar if it's connected.</p>
+      </div>
+    `,
+  })
+
+  if (error) {
+    throw new Error(error.message || "Failed to send doctor notification email.")
+  }
+}
+
+export default { sendPasswordResetEmail, sendAppointmentReminderEmail, sendDoctorNewAppointmentEmail }

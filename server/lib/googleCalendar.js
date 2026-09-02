@@ -77,6 +77,27 @@ export const isGoogleCalendarConfigured = async () => {
   return Boolean(connection?.refresh_token)
 }
 
+// Unlike isGoogleCalendarConfigured/getGoogleCalendarStatus (which only
+// check that a refresh token is stored), this actually calls Google to
+// confirm that token still works — a revoked/expired refresh token
+// otherwise leaves the admin Settings page showing "Connected" forever
+// even though every real sync has been silently failing.
+export const verifyGoogleConnection = async () => {
+  const connection = await getConnection()
+  if (!connection?.refresh_token) {
+    return { connected: false, email: null }
+  }
+
+  try {
+    const oauth2Client = buildAuthorizedClient(connection)
+    await oauth2Client.getAccessToken()
+    return { connected: true, email: connection.connected_email || null }
+  } catch (error) {
+    console.warn("Stored Google Calendar connection is no longer valid:", error.message)
+    return { connected: false, email: connection.connected_email || null, error: error.message }
+  }
+}
+
 export const getGoogleCalendarStatus = async () => {
   const connection = await getConnection()
 

@@ -154,7 +154,9 @@ export default function Settings() {
                   <div>
                     <p className="text-sm font-semibold">Not connected</p>
                     <p className="mt-1 text-xs text-[#718079]">
-                      Appointments won't sync to Google Calendar until this is connected.
+                      {google?.error
+                        ? "The previous connection expired or was revoked. Reconnect to resume syncing."
+                        : "Appointments won't sync to Google Calendar until this is connected."}
                     </p>
                   </div>
                 </div>

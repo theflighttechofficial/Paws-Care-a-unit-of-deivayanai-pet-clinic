@@ -12,6 +12,7 @@ import {
 } from "../db/appointments.js"
 import { listRecordsByPet } from "../db/medicalRecords.js"
 import { isDoctorOnLeave } from "../db/doctorLeaves.js"
+import { sendDoctorNewAppointmentEmail } from "../lib/mailer.js"
 import { createGoogleCalendarEventForAppointment, getGoogleCalendarStatus } from "../lib/googleCalendar.js"
 
 // Postgres returns `time` columns as 24-hour strings ("09:00:00"); the
@@ -137,6 +138,24 @@ export const createOwnerAppointment = async (req, res) => {
         eventId: calendarEvent.eventId,
         meetLink: calendarEvent.meetLink,
       })
+    }
+  }
+
+  if (appointment.doctor?.profile?.email) {
+    try {
+      await sendDoctorNewAppointmentEmail(appointment.doctor.profile.email, {
+        pet_name: appointment.pet?.name,
+        owner_name: appointment.owner?.full_name,
+        service: appointment.service,
+        consultation_type: appointment.consultation_type,
+        appointment_date: appointment.appointment_date,
+        appointment_time: appointment.appointment_time,
+      })
+    } catch (error) {
+      // Same dev-fallback reasoning as the other transactional emails: the
+      // Resend sandbox can only deliver to the account's own signup
+      // address until a domain is verified. Don't fail the booking over it.
+      console.warn(`Doctor notification email failed to send to ${appointment.doctor.profile.email}: ${error.message}`)
     }
   }
 
