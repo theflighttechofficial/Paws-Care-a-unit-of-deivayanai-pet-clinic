@@ -99,4 +99,49 @@ export const sendDoctorNewAppointmentEmail = async (toEmail, appointment) => {
   }
 }
 
-export default { sendPasswordResetEmail, sendAppointmentReminderEmail, sendDoctorNewAppointmentEmail }
+export const sendOwnerBookingConfirmationEmail = async (toEmail, appointment) => {
+  if (!resend) {
+    throw new Error("RESEND_API_KEY is not configured.")
+  }
+
+  const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
+  const isOnline = appointment.consultation_type === "online"
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    ...(appointment.doctor_email ? { cc: appointment.doctor_email } : {}),
+    subject: `Appointment confirmed: ${appointment.pet_name} on ${when}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color:#173b31;">Your appointment is confirmed</h2>
+        <p><strong>${appointment.pet_name}</strong>'s <strong>${appointment.service}</strong> appointment with ${appointment.doctor_name} is booked.</p>
+        <p style="color:#173b31;font-weight:600;">${when}</p>
+        <p>${isOnline ? "Online consultation via Google Meet" : "In-clinic visit"}</p>
+        ${
+          appointment.meet_link
+            ? `<p>
+                <a href="${appointment.meet_link}" style="display:inline-block;background:#173b31;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">
+                  Join Google Meet
+                </a>
+              </p>`
+            : isOnline
+              ? `<p style="color:#718079;font-size:13px;">Your Google Meet link will be available closer to the appointment.</p>`
+              : ""
+        }
+        <p style="color:#718079;font-size:13px;">We'll send you a reminder the day before. See you soon at Paws & Care.</p>
+      </div>
+    `,
+  })
+
+  if (error) {
+    throw new Error(error.message || "Failed to send booking confirmation email.")
+  }
+}
+
+export default {
+  sendPasswordResetEmail,
+  sendAppointmentReminderEmail,
+  sendDoctorNewAppointmentEmail,
+  sendOwnerBookingConfirmationEmail,
+}

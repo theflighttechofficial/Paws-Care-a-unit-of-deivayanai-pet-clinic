@@ -150,10 +150,10 @@ export const updateAppointmentStatus = async (id, status) => {
   return findAppointmentById(id)
 }
 
-export const setGoogleCalendarInfo = async (id, { eventId, meetLink }) => {
+export const setGoogleCalendarInfo = async (id, { eventId, meetLink, syncStatus }) => {
   await pool.query(
-    "update public.appointments set google_calendar_event_id = $2, google_meet_url = $3 where id = $1",
-    [id, eventId || null, meetLink || null]
+    "update public.appointments set google_calendar_event_id = $2, google_meet_url = $3, google_sync_status = $4 where id = $1",
+    [id, eventId || null, meetLink || null, syncStatus || null]
   )
   return findAppointmentById(id)
 }

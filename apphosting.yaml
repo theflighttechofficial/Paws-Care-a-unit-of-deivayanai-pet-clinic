@@ -18,14 +18,17 @@ env:
   - variable: RAZORPAY_KEY_ID
     value: rzp_test_TVuX7StpvgGkJ4
 
-  # TODO: replace with the real App Hosting backend URL once it's created
-  # (console shows it as https://<backend-id>--paws-care.<region>.hosted.app,
-  # or your custom domain if you attach one). Also re-register the redirect
-  # URI in Google Cloud Console's OAuth client once this is final.
+  # Separate client, used only for the "Sign in with Google" button
+  # (ID-token verification) — not the Calendar admin-connect flow above.
+  - variable: GOOGLE_SIGNIN_CLIENT_ID
+    value: 600377782029-sknmd9g9s1i83boucemmcn1v2cgfet8q.apps.googleusercontent.com
+  - variable: VITE_GOOGLE_CLIENT_ID
+    value: 600377782029-sknmd9g9s1i83boucemmcn1v2cgfet8q.apps.googleusercontent.com
+
   - variable: FRONTEND_URL
-    value: https://paws-care.web.app
+    value: https://deivayanaipetclinic.online
   - variable: GOOGLE_OAUTH_REDIRECT_URI
-    value: https://paws-care.web.app/api/google/oauth/callback
+    value: https://deivayanaipetclinic.online/api/google/oauth/callback
 
   # Secrets — set once via `firebase apphosting:secrets:set <NAME>`, then
   # referenced here by name. Never put the actual values in this file.

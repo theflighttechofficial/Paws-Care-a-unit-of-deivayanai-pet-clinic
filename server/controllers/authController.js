@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
 import jwt from "jsonwebtoken"
+import { google } from "googleapis"
 import {
   createProfile,
   findProfileByEmail,
@@ -9,6 +10,13 @@ import {
   setResetToken,
 } from "../db/profiles.js"
 import { sendPasswordResetEmail } from "../lib/mailer.js"
+
+// A separate OAuth client from the admin's Calendar-connect flow (which
+// uses GOOGLE_OAUTH_CLIENT_ID + a client secret for a server-side redirect
+// exchange). This one only ever verifies ID tokens handed to it by the
+// frontend's "Sign in with Google" button, so it needs its own client ID
+// (registered with the frontend's origins) and no secret at all.
+const googleIdTokenClient = new google.auth.OAuth2(process.env.GOOGLE_SIGNIN_CLIENT_ID)
 
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 30 // 30 minutes
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex")
@@ -219,10 +227,68 @@ export const resetPassword = async (req, res) => {
   }
 }
 
+export const googleSignIn = async (req, res) => {
+  try {
+    const { credential } = req.body
+
+    if (!credential) {
+      return res.status(400).json({ message: "Missing Google credential." })
+    }
+
+    if (!process.env.GOOGLE_SIGNIN_CLIENT_ID) {
+      return res.status(503).json({ message: "Google sign-in isn't configured yet." })
+    }
+
+    let payload
+    try {
+      const ticket = await googleIdTokenClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_SIGNIN_CLIENT_ID,
+      })
+      payload = ticket.getPayload()
+    } catch {
+      return res.status(401).json({ message: "Invalid Google sign-in. Please try again." })
+    }
+
+    if (!payload?.email || !payload.email_verified) {
+      return res.status(401).json({ message: "Your Google account's email must be verified to sign in." })
+    }
+
+    const email = payload.email.toLowerCase()
+    let user = await findProfileByEmail(email)
+
+    if (!user) {
+      // Google-only accounts still need a password_hash to satisfy the
+      // column's NOT NULL constraint — this random value is never used
+      // since the owner always authenticates via Google.
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12)
+      user = await createProfile({
+        email,
+        passwordHash,
+        fullName: payload.name || email.split("@")[0],
+        phone: "",
+        role: "owner",
+      })
+    }
+
+    const token = createToken(user)
+
+    return res.json({
+      message: "Signed in with Google.",
+      token,
+      user: sanitizeUser(user),
+    })
+  } catch (error) {
+    console.error("Google sign-in error:", error)
+    return res.status(500).json({ message: "Something went wrong. Please try again." })
+  }
+}
+
 export default {
   registerUser,
   loginUser,
   getCurrentUser,
   forgotPassword,
   resetPassword,
+  googleSignIn,
 }

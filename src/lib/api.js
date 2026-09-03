@@ -206,6 +206,12 @@ export async function apiRequest(path, options = {}) {
     return data
   }
 
+  if (path === "/auth/google") {
+    const data = await request("/auth/google", { method: "POST", body: options.body })
+    setToken(data.token)
+    return data
+  }
+
   if (path === "/auth/me") {
     return request("/auth/me")
   }

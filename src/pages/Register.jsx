@@ -4,6 +4,7 @@ import { ArrowRight, Lock, Mail, User } from "lucide-react"
 import { motion } from "framer-motion"
 import { useAuth } from "../context/AuthContext"
 import Logo from "../components/Logo"
+import GoogleSignInButton from "../components/GoogleSignInButton"
 
 export default function Register() {
   const navigate = useNavigate()
@@ -122,6 +123,16 @@ export default function Register() {
               />
             </button>
           </form>
+
+          <div className="mt-8 flex items-center gap-4">
+            <div className="h-px flex-1 bg-[#e1e6e2]" />
+            <span className="text-xs text-[#a0aaa5]">or</span>
+            <div className="h-px flex-1 bg-[#e1e6e2]" />
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <GoogleSignInButton />
+          </div>
 
           <p className="mt-8 text-center text-sm text-[#718079]">
             Already have an account?{" "}

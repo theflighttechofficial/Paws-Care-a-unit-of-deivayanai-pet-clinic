@@ -60,9 +60,40 @@ const buildSession = ({ startHour, endHour }) => {
   return slots
 }
 
+// The clinic's slots are fixed IST wall-clock hours, not "whatever
+// timezone the visitor's browser happens to be in" — Asia/Kolkata has no
+// DST, so a fixed offset is safe. Must match the backend's CLINIC_UTC_OFFSET.
+const CLINIC_UTC_OFFSET = "+05:30"
+
+// Turns a date's local Y-M-D key + a "09:00 AM" slot label into a real
+// Date anchored to IST, so today's already-passed slots can be filtered
+// out below regardless of the browser's own timezone.
+const parseSlotDateTime = (dateKey, timeLabel) => {
+  const match = timeLabel.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i)
+  if (!match) return null
+  let hour = parseInt(match[1], 10)
+  const minute = parseInt(match[2], 10)
+  const meridiem = match[3].toUpperCase()
+  if (hour === 12) hour = meridiem === "AM" ? 0 : 12
+  else if (meridiem === "PM") hour += 12
+  const hh = String(hour).padStart(2, "0")
+  const mm = String(minute).padStart(2, "0")
+  return new Date(`${dateKey}T${hh}:${mm}:00${CLINIC_UTC_OFFSET}`)
+}
+
 // Mon–Sat: 9:00 AM–1:00 PM and 4:00 PM–10:00 PM. Sundays: mornings only.
-const getTimeSlotsForDate = (date) =>
-  date?.day === "Sun" ? buildSession(MORNING_SESSION) : [...buildSession(MORNING_SESSION), ...buildSession(EVENING_SESSION)]
+// Slots that have already passed today are excluded so a slot can't be
+// picked and booked after its time has come and gone.
+const getTimeSlotsForDate = (date) => {
+  const allSlots = date?.day === "Sun" ? buildSession(MORNING_SESSION) : [...buildSession(MORNING_SESSION), ...buildSession(EVENING_SESSION)]
+  if (!date) return allSlots
+
+  const now = new Date()
+  return allSlots.filter((time) => {
+    const slotDateTime = parseSlotDateTime(date.dateKey, time)
+    return !slotDateTime || slotDateTime > now
+  })
+}
 
 const consultationTypes = [
   {
@@ -156,7 +187,7 @@ export default function Booking() {
       return
     }
 
-    const dateParam = selectedDate.value.slice(0, 10)
+    const dateParam = selectedDate.dateKey
     setSlotsLoading(true)
     apiRequest(`/appointments/booked-slots?doctorId=${doctorId}&date=${dateParam}`)
       .then((response) => {
@@ -185,6 +216,11 @@ export default function Booking() {
 
       return {
         value: date.toISOString(),
+        // Local Y-M-D (not toISOString's UTC date, which can roll back a
+        // day for early-morning IST users) — used to anchor slot times to
+        // the clinic's actual timezone below, independent of the
+        // browser's own timezone.
+        dateKey: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
         day: date.toLocaleDateString("en-US", {
           weekday: "short",
         }),
@@ -248,7 +284,7 @@ export default function Booking() {
           doctorId: selectedDoctor._id,
           service: selectedService.title,
           type: selectedType.id,
-          date: selectedDate.value,
+          date: selectedDate.dateKey,
           startTime: selectedTime,
           endTime: selectedTime,
         }),

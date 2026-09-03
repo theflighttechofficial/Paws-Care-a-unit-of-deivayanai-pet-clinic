@@ -1,45 +1,68 @@
 import { google } from "googleapis"
 import { getConnection, updateAccessToken } from "../db/googleAuth.js"
 
-const parseTimeString = (timeValue, baseDate) => {
+// Asia/Kolkata never observes DST, so a fixed UTC offset is safe here.
+// This MUST match CLINIC_TIMEZONE (default "Asia/Kolkata") — if the clinic
+// ever operates in a different zone, update both together.
+const CLINIC_UTC_OFFSET = "+05:30"
+
+// Pulls the plain "YYYY-MM-DD" out of either a JS Date or a date string.
+// node-postgres decodes a `date` column via the LOCAL Date constructor
+// (new Date(year, month, day) in the server process's own timezone), not
+// UTC — so reading it back must use the matching local getters, not
+// toISOString(), or the date silently shifts by a day on any server whose
+// process timezone sits ahead of UTC (as IST does).
+const dateKeyOf = (baseDate) => {
+  if (baseDate instanceof Date) {
+    const y = baseDate.getFullYear()
+    const m = String(baseDate.getMonth() + 1).padStart(2, "0")
+    const d = String(baseDate.getDate()).padStart(2, "0")
+    return `${y}-${m}-${d}`
+  }
+  return String(baseDate).slice(0, 10)
+}
+
+export const parseTimeString = (timeValue, baseDate) => {
   if (!timeValue || typeof timeValue !== "string") {
     return null
   }
 
   const normalized = timeValue.trim()
+  let hours
+  let minutes
 
   // Postgres `time` columns are always returned as 24-hour "HH:MM" or
   // "HH:MM:SS" (e.g. "15:15:00"), never with an AM/PM suffix.
   const twentyFourHour = normalized.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
   if (twentyFourHour) {
-    const hours = Number(twentyFourHour[1])
-    const minutes = Number(twentyFourHour[2])
+    hours = Number(twentyFourHour[1])
+    minutes = Number(twentyFourHour[2])
     if (hours > 23 || minutes > 59) return null
-    const date = new Date(baseDate)
-    date.setHours(hours, minutes, 0, 0)
-    return date
+  } else {
+    // Fall back to accepting a 12-hour "10:30 AM" string, in case a caller
+    // ever passes one directly.
+    const twelveHour = normalized.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i)
+    if (!twelveHour) return null
+
+    hours = Number(twelveHour[1])
+    minutes = Number(twelveHour[2])
+    const meridiem = twelveHour[3].toUpperCase()
+
+    if (hours === 12) {
+      hours = meridiem === "AM" ? 0 : 12
+    } else if (meridiem === "PM") {
+      hours += 12
+    }
   }
 
-  // Fall back to accepting a 12-hour "10:30 AM" string, in case a caller
-  // ever passes one directly.
-  const twelveHour = normalized.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i)
-  if (!twelveHour) {
-    return null
-  }
-
-  let hours = Number(twelveHour[1])
-  const minutes = Number(twelveHour[2])
-  const meridiem = twelveHour[3].toUpperCase()
-
-  if (hours === 12) {
-    hours = meridiem === "AM" ? 0 : 12
-  } else if (meridiem === "PM") {
-    hours += 12
-  }
-
-  const date = new Date(baseDate)
-  date.setHours(hours, minutes, 0, 0)
-  return date
+  // Built with an explicit offset (not Date.setHours, which uses the
+  // server process's OS timezone) so the resulting instant is correct
+  // regardless of what timezone the server happens to run in — this is
+  // what was silently shifting booked times in production, where the host
+  // runs in UTC rather than IST.
+  const hh = String(hours).padStart(2, "0")
+  const mm = String(minutes).padStart(2, "0")
+  return new Date(`${dateKeyOf(baseDate)}T${hh}:${mm}:00${CLINIC_UTC_OFFSET}`)
 }
 
 export const buildGoogleOAuthClient = () =>
@@ -114,7 +137,32 @@ export const getGoogleCalendarStatus = async () => {
   }
 }
 
+// The site lists two branches (Porur and Iyyapanthangal, Chennai) with no
+// per-booking branch selection today, so a single precise street address
+// can't be attributed correctly — this points recipients to both via the
+// clinic's own numbers instead of guessing one.
+const CLINIC_ADDRESS = "Deivayanai Pet Clinic — Porur or Iyyapanthangal, Chennai, Tamil Nadu (call to confirm your branch)"
+
+const isValidEmail = (email) => typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+const typeLabel = (type) => (type === "online" ? "Online" : type === "phone" ? "Phone" : "In-person")
+
 export async function createGoogleCalendarEventForAppointment(appointment) {
+  // The owner is the whole point of the invite — if their email is
+  // missing or malformed, don't attempt the event at all rather than
+  // silently create one nobody useful is invited to.
+  if (!isValidEmail(appointment.owner?.email)) {
+    console.warn("Skipping Google Calendar sync: owner email is missing or invalid.", {
+      ownerEmail: appointment.owner?.email,
+    })
+    return {
+      configured: true,
+      eventId: null,
+      meetLink: null,
+      message: "Calendar invite skipped: the owner's email address is missing or invalid.",
+    }
+  }
+
   const connection = await getConnection()
 
   if (!connection?.refresh_token) {
@@ -145,20 +193,27 @@ export async function createGoogleCalendarEventForAppointment(appointment) {
       }
     }
 
-    const attendees = []
-    if (appointment.owner?.email) attendees.push({ email: appointment.owner.email })
-    if (appointment.doctor?.email) attendees.push({ email: appointment.doctor.email })
+    const attendees = [{ email: appointment.owner.email }]
+    if (isValidEmail(appointment.doctor?.email)) attendees.push({ email: appointment.doctor.email })
+
+    const isOnline = appointment.type === "online"
+    const ownerFirstName = (appointment.owner?.name || "Pet parent").trim().split(/\s+/)[0]
+
+    const descriptionLines = [
+      `Paws & Care veterinary clinic appointment`,
+      `Service: ${appointment.service || "Consultation"}`,
+      `Type: ${typeLabel(appointment.type)}`,
+      `Doctor: ${appointment.doctor?.name || "Veterinarian"}`,
+      `Owner: ${appointment.owner?.name || "Pet parent"}`,
+      `Pet: ${appointment.pet?.name || "Pet"}`,
+    ]
+    if (!isOnline) {
+      descriptionLines.push(`Location: ${CLINIC_ADDRESS}`)
+    }
 
     const requestBody = {
-      summary: `${appointment.service || "Veterinary consultation"} - ${appointment.pet?.name || "Pet"}`,
-      description: [
-        `Paws & Care veterinary clinic appointment`,
-        `Service: ${appointment.service || "Consultation"}`,
-        `Type: ${appointment.type || "clinic"}`,
-        `Doctor: ${appointment.doctor?.name || "Veterinarian"}`,
-        `Owner: ${appointment.owner?.name || "Pet parent"}`,
-        `Pet: ${appointment.pet?.name || "Pet"}`,
-      ].join("\n"),
+      summary: `${appointment.service || "Veterinary consultation"} - ${ownerFirstName}`,
+      description: descriptionLines.join("\n"),
       start: { dateTime: startDateTime.toISOString(), timeZone },
       end: { dateTime: endDateTime.toISOString(), timeZone },
       attendees,
@@ -181,7 +236,11 @@ export async function createGoogleCalendarEventForAppointment(appointment) {
     try {
       response = await calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
-        sendUpdates: "all",
+        // Google would otherwise email attendees its own native calendar
+        // invite from the connected admin account (varunvaibhav06@gmail.com)
+        // — all appointment email should come from noreply@ via our own
+        // mailer instead, so attendee notifications are suppressed here.
+        sendUpdates: "none",
         conferenceDataVersion: wantsMeetLink ? 1 : 0,
         requestBody,
       })
@@ -194,7 +253,11 @@ export async function createGoogleCalendarEventForAppointment(appointment) {
         delete requestBody.conferenceData
         response = await calendar.events.insert({
           calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
-          sendUpdates: "all",
+          // Google would otherwise email attendees its own native calendar
+        // invite from the connected admin account (varunvaibhav06@gmail.com)
+        // — all appointment email should come from noreply@ via our own
+        // mailer instead, so attendee notifications are suppressed here.
+        sendUpdates: "none",
           requestBody,
         })
       } else {

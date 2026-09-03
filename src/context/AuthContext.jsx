@@ -48,6 +48,16 @@ export function AuthProvider({ children }) {
     return { user: loggedInUser }
   }
 
+  const loginWithGoogle = async (credential) => {
+    const { user: loggedInUser } = await apiRequest("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    })
+
+    setUser(loggedInUser)
+    return { user: loggedInUser }
+  }
+
   const register = async (credentials) => {
     const { user: registeredUser, message } = await apiRequest("/auth/register", {
       method: "POST",
@@ -75,6 +85,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
+      loginWithGoogle,
       register,
       logout,
       isAuthenticated,

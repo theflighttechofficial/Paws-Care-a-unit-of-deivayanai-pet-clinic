@@ -12,8 +12,8 @@ import {
 } from "../db/appointments.js"
 import { listRecordsByPet } from "../db/medicalRecords.js"
 import { isDoctorOnLeave } from "../db/doctorLeaves.js"
-import { sendDoctorNewAppointmentEmail } from "../lib/mailer.js"
-import { createGoogleCalendarEventForAppointment, getGoogleCalendarStatus } from "../lib/googleCalendar.js"
+import { sendDoctorNewAppointmentEmail, sendOwnerBookingConfirmationEmail } from "../lib/mailer.js"
+import { createGoogleCalendarEventForAppointment, getGoogleCalendarStatus, parseTimeString } from "../lib/googleCalendar.js"
 
 // Postgres returns `time` columns as 24-hour strings ("09:00:00"); the
 // booking UI works in 12-hour labels ("09:00 AM") so slots can be matched
@@ -86,6 +86,11 @@ export const createOwnerAppointment = async (req, res) => {
 
   const appointmentDate = new Date(date).toISOString().slice(0, 10)
 
+  const slotDateTime = parseTimeString(startTime, appointmentDate)
+  if (!slotDateTime || slotDateTime <= new Date()) {
+    return res.status(400).json({ message: "That time has already passed. Please choose an upcoming slot." })
+  }
+
   const onLeave = await isDoctorOnLeave(doctorId, appointmentDate)
   if (onLeave) {
     return res.status(409).json({ message: "This doctor is on leave that day. Please choose another date." })
@@ -133,12 +138,20 @@ export const createOwnerAppointment = async (req, res) => {
     })
     googleCalendarStatus = calendarEvent
 
-    if (calendarEvent.eventId || calendarEvent.meetLink) {
-      appointment = await setGoogleCalendarInfo(appointment.id, {
-        eventId: calendarEvent.eventId,
-        meetLink: calendarEvent.meetLink,
-      })
-    }
+    // Persist a sync status even on failure/skip (not just eventId/meetLink
+    // on success) so a failed sync is visible for retry/manual follow-up
+    // instead of silently looking identical to "never attempted".
+    const syncStatus = calendarEvent.eventId
+      ? "success"
+      : calendarEvent.configured === false
+        ? "not_configured"
+        : "failed"
+
+    appointment = await setGoogleCalendarInfo(appointment.id, {
+      eventId: calendarEvent.eventId,
+      meetLink: calendarEvent.meetLink,
+      syncStatus,
+    })
   }
 
   if (appointment.doctor?.profile?.email) {
@@ -156,6 +169,23 @@ export const createOwnerAppointment = async (req, res) => {
       // Resend sandbox can only deliver to the account's own signup
       // address until a domain is verified. Don't fail the booking over it.
       console.warn(`Doctor notification email failed to send to ${appointment.doctor.profile.email}: ${error.message}`)
+    }
+  }
+
+  if (appointment.owner?.email) {
+    try {
+      await sendOwnerBookingConfirmationEmail(appointment.owner.email, {
+        pet_name: appointment.pet?.name,
+        doctor_name: appointment.doctor?.profile?.full_name,
+        doctor_email: appointment.doctor?.profile?.email,
+        service: appointment.service,
+        consultation_type: appointment.consultation_type,
+        appointment_date: appointment.appointment_date,
+        appointment_time: appointment.appointment_time,
+        meet_link: appointment.google_meet_url,
+      })
+    } catch (error) {
+      console.warn(`Booking confirmation email failed to send to ${appointment.owner.email}: ${error.message}`)
     }
   }
 
