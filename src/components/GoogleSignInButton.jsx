@@ -55,12 +55,13 @@ export default function GoogleSignInButton() {
           client_id: GOOGLE_CLIENT_ID,
           callback: handleCredential,
         })
+        const width = Math.min(320, buttonRef.current.offsetWidth || 320)
         window.google.accounts.id.renderButton(buttonRef.current, {
           type: "standard",
           shape: "pill",
           theme: "outline",
           size: "large",
-          width: 320,
+          width,
         })
       })
       .catch((err) => setError(err.message))
@@ -73,8 +74,8 @@ export default function GoogleSignInButton() {
   if (!GOOGLE_CLIENT_ID) return null
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div ref={buttonRef} />
+    <div className="flex w-full max-w-[320px] flex-col items-center gap-2">
+      <div ref={buttonRef} className="w-full" />
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   )
