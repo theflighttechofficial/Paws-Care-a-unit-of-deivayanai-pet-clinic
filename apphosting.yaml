@@ -16,7 +16,7 @@ env:
   - variable: GOOGLE_OAUTH_CLIENT_ID
     value: 600377782029-jfqeujt7kqkf8t66tkqog57lsqlutbjt.apps.googleusercontent.com
   - variable: RAZORPAY_KEY_ID
-    value: rzp_test_TVuX7StpvgGkJ4
+    value: rzp_test_TXtyVXH08uaxzi
 
   # Separate client, used only for the "Sign in with Google" button
   # (ID-token verification) — not the Calendar admin-connect flow above.
