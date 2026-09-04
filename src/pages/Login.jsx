@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { useAuth } from "../context/AuthContext"
 import Logo from "../components/Logo"
 import GoogleSignInButton from "../components/GoogleSignInButton"
+import ErrorNotice from "../components/ErrorNotice"
 
 export default function Login() {
   const navigate = useNavigate()
@@ -114,11 +115,7 @@ export default function Login() {
                   onChange={setPassword}
                 />
 
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                    {error}
-                  </div>
-                )}
+                {error && <ErrorNotice message={error} />}
 
                 <div className="flex justify-end">
                   <Link

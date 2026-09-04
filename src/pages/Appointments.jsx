@@ -260,7 +260,7 @@ export default function Appointments() {
                 appointmentId={payingAppointment._id}
                 user={user}
                 title="Pay to confirm your online consultation"
-                description="Pay the ₹200 consultation fee to get the call-to-confirm number and your Google Meet link."
+                description="Pay the consultation fee to get the call-to-confirm number and your Google Meet link."
                 onPaid={() => markAppointmentPaid(payingAppointment._id)}
                 onBack={() => setPayingAppointment(null)}
               />
@@ -437,7 +437,7 @@ function AppointmentCard({
               <div>
                 <p className="text-xs font-semibold">Payment required</p>
                 <p className="mt-0.5 text-[10px] text-[#87928c]">
-                  Pay the ₹200 consultation fee to get the call-to-confirm number and Google Meet link.
+                  Pay the consultation fee to get the call-to-confirm number and Google Meet link.
                 </p>
               </div>
             </div>
@@ -447,7 +447,7 @@ function AppointmentCard({
               className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#173b31] px-5 py-2.5 text-[10px] font-semibold text-white"
             >
               <CreditCard size={12} />
-              Pay ₹200
+              Pay now
             </button>
           </div>
         )}
@@ -661,14 +661,14 @@ function DetailsModal({
           <div className="mt-7 rounded-2xl bg-[#faf2f1] p-5 text-center">
             <p className="text-sm font-semibold text-[#a06b68]">Payment required</p>
             <p className="mt-1 text-xs text-[#87928c]">
-              Pay the ₹200 consultation fee to get the call-to-confirm number and Google Meet link.
+              Pay the consultation fee to get the call-to-confirm number and Google Meet link.
             </p>
             <button
               onClick={onPayNow}
               className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-full bg-[#173b31] px-6 py-3 text-xs font-semibold text-white"
             >
               <CreditCard size={14} />
-              Pay ₹200
+              Pay now
             </button>
           </div>
         )}

@@ -11,6 +11,7 @@ import Register from "./pages/Register"
 import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
 import NotFound from "./pages/NotFound"
+import AboutDeveloper from "./pages/AboutDeveloper"
 import Dashboard from "./pages/Dashboard"
 import Pets from "./pages/Pets"
 import PetProfile from "./pages/PetProfile"
@@ -91,6 +92,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/about-developer" element={<AboutDeveloper />} />
 
       <Route element={<ProtectedRoute allowedRoles={["owner"]} />}>
         <Route path="/booking" element={<Booking />} />

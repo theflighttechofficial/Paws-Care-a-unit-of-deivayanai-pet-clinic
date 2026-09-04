@@ -288,12 +288,24 @@ export async function apiRequest(path, options = {}) {
     return request(path, { method: "DELETE" })
   }
 
+  if (path === "/settings" && method === "GET") {
+    return request("/settings")
+  }
+
+  if (path === "/admin/settings/fee" && method === "PUT") {
+    return request("/admin/settings/fee", { method: "PUT", body: options.body })
+  }
+
   if (path === "/payments/create-order") {
     return request("/payments/create-order", { method: "POST", body: options.body })
   }
 
   if (path === "/payments/verify") {
-    return request("/payments/verify", { method: "POST", body: options.body })
+    const data = await request("/payments/verify", { method: "POST", body: options.body })
+    return {
+      ...data,
+      appointment: data.appointment ? normalizeAppointment(data.appointment) : null,
+    }
   }
 
   if (path === "/appointments/owner/mine") {

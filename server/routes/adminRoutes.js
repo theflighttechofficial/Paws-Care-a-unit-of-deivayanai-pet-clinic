@@ -3,6 +3,7 @@ import { getAdminAppointments, getAdminPatients, getAdminStats } from "../contro
 import { disconnectGoogle, getGoogleConnectionStatus, startGoogleConnect } from "../controllers/googleAuthController.js"
 import { getAllPayments, recordManualPayment } from "../controllers/paymentController.js"
 import { getAdminRatings } from "../controllers/ratingController.js"
+import { updateConsultationFee } from "../controllers/settingsController.js"
 import { protect, requireRole } from "../middleware/authMiddleware.js"
 
 const router = express.Router()
@@ -16,6 +17,7 @@ router.get("/patients", getAdminPatients)
 router.get("/payments", getAllPayments)
 router.post("/payments", recordManualPayment)
 router.get("/ratings", getAdminRatings)
+router.put("/settings/fee", updateConsultationFee)
 router.get("/google/connect", startGoogleConnect)
 router.get("/google/status", getGoogleConnectionStatus)
 router.post("/google/disconnect", disconnectGoogle)

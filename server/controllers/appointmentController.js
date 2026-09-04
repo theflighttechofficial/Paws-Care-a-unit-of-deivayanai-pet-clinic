@@ -1,19 +1,14 @@
-import { listDoctors, findDoctorById, findDoctorByProfileId } from "../db/doctors.js"
-import { findPetByIdForOwner } from "../db/pets.js"
+import { listDoctors, findDoctorByProfileId } from "../db/doctors.js"
 import {
-  createAppointment as insertAppointment,
   findAppointmentById,
-  findConflictingSlot,
   listAppointmentsByDoctor,
   listAppointmentsByOwner,
   listBookedTimesForDoctorDate,
-  setGoogleCalendarInfo,
   updateAppointmentStatus as applyStatusUpdate,
 } from "../db/appointments.js"
 import { listRecordsByPet } from "../db/medicalRecords.js"
 import { isDoctorOnLeave } from "../db/doctorLeaves.js"
-import { sendDoctorNewAppointmentEmail, sendOwnerBookingConfirmationEmail } from "../lib/mailer.js"
-import { createGoogleCalendarEventForAppointment, getGoogleCalendarStatus, parseTimeString } from "../lib/googleCalendar.js"
+import { BookingError, bookAppointmentForOwner } from "../services/bookingService.js"
 
 // Postgres returns `time` columns as 24-hour strings ("09:00:00"); the
 // booking UI works in 12-hour labels ("09:00 AM") so slots can be matched
@@ -72,128 +67,23 @@ export const getAppointmentById = async (req, res) => {
   return res.json({ appointment, medicalRecords })
 }
 
+// Kept for direct/manual booking (e.g. admin tooling) — the owner-facing
+// booking flow now reserves the slot only after payment succeeds, via the
+// same bookAppointmentForOwner() called from paymentController.verifyPayment.
 export const createOwnerAppointment = async (req, res) => {
-  const { petId, doctorId, service, type, date, startTime } = req.body
-  if (!petId || !doctorId || !service || !type || !date || !startTime) {
-    return res.status(400).json({ message: "Please complete all appointment details." })
-  }
-
-  const pet = await findPetByIdForOwner(petId, req.user.id)
-  if (!pet) return res.status(404).json({ message: "Pet not found." })
-
-  const doctor = await findDoctorById(doctorId)
-  if (!doctor) return res.status(400).json({ message: "Selected doctor is unavailable." })
-
-  const appointmentDate = new Date(date).toISOString().slice(0, 10)
-
-  const slotDateTime = parseTimeString(startTime, appointmentDate)
-  if (!slotDateTime || slotDateTime <= new Date()) {
-    return res.status(400).json({ message: "That time has already passed. Please choose an upcoming slot." })
-  }
-
-  const onLeave = await isDoctorOnLeave(doctorId, appointmentDate)
-  if (onLeave) {
-    return res.status(409).json({ message: "This doctor is on leave that day. Please choose another date." })
-  }
-
-  const conflict = await findConflictingSlot(doctorId, appointmentDate, startTime)
-  if (conflict) {
-    return res.status(409).json({ message: "This time slot is no longer available." })
-  }
-
-  let appointment
   try {
-    appointment = await insertAppointment({
-      ownerId: req.user.id,
-      petId: pet.id,
-      doctorId: doctor.id,
-      service,
-      consultationType: type,
-      date: appointmentDate,
-      time: startTime,
+    const { appointment, googleCalendarStatus } = await bookAppointmentForOwner(req.user.id, req.body)
+    return res.status(201).json({
+      message: "Appointment booked successfully.",
+      googleCalendarStatus: googleCalendarStatus.message,
+      appointment,
     })
   } catch (error) {
-    // Belt-and-braces: the pre-check above has a race window between two
-    // concurrent bookings, so the DB's partial unique index
-    // (appointments_doctor_slot_unique) is the actual source of truth.
-    if (error.code === "23505") {
-      return res.status(409).json({ message: "This time slot is no longer available." })
+    if (error instanceof BookingError) {
+      return res.status(error.status).json({ message: error.message })
     }
     throw error
   }
-
-  let googleCalendarStatus = await getGoogleCalendarStatus()
-
-  if (appointment.consultation_type === "online" || appointment.consultation_type === "clinic") {
-    const calendarEvent = await createGoogleCalendarEventForAppointment({
-      _id: appointment.id,
-      service: appointment.service,
-      type: appointment.consultation_type,
-      date: appointment.appointment_date,
-      startTime: appointment.appointment_time,
-      duration: appointment.duration,
-      pet: appointment.pet,
-      owner: { name: appointment.owner.full_name, email: appointment.owner.email },
-      doctor: { name: appointment.doctor.profile.full_name, email: appointment.doctor.profile.email },
-    })
-    googleCalendarStatus = calendarEvent
-
-    // Persist a sync status even on failure/skip (not just eventId/meetLink
-    // on success) so a failed sync is visible for retry/manual follow-up
-    // instead of silently looking identical to "never attempted".
-    const syncStatus = calendarEvent.eventId
-      ? "success"
-      : calendarEvent.configured === false
-        ? "not_configured"
-        : "failed"
-
-    appointment = await setGoogleCalendarInfo(appointment.id, {
-      eventId: calendarEvent.eventId,
-      meetLink: calendarEvent.meetLink,
-      syncStatus,
-    })
-  }
-
-  if (appointment.doctor?.profile?.email) {
-    try {
-      await sendDoctorNewAppointmentEmail(appointment.doctor.profile.email, {
-        pet_name: appointment.pet?.name,
-        owner_name: appointment.owner?.full_name,
-        service: appointment.service,
-        consultation_type: appointment.consultation_type,
-        appointment_date: appointment.appointment_date,
-        appointment_time: appointment.appointment_time,
-      })
-    } catch (error) {
-      // Same dev-fallback reasoning as the other transactional emails: the
-      // Resend sandbox can only deliver to the account's own signup
-      // address until a domain is verified. Don't fail the booking over it.
-      console.warn(`Doctor notification email failed to send to ${appointment.doctor.profile.email}: ${error.message}`)
-    }
-  }
-
-  if (appointment.owner?.email) {
-    try {
-      await sendOwnerBookingConfirmationEmail(appointment.owner.email, {
-        pet_name: appointment.pet?.name,
-        doctor_name: appointment.doctor?.profile?.full_name,
-        doctor_email: appointment.doctor?.profile?.email,
-        service: appointment.service,
-        consultation_type: appointment.consultation_type,
-        appointment_date: appointment.appointment_date,
-        appointment_time: appointment.appointment_time,
-        meet_link: appointment.google_meet_url,
-      })
-    } catch (error) {
-      console.warn(`Booking confirmation email failed to send to ${appointment.owner.email}: ${error.message}`)
-    }
-  }
-
-  return res.status(201).json({
-    message: "Appointment booked successfully.",
-    googleCalendarStatus: googleCalendarStatus.message,
-    appointment,
-  })
 }
 
 export const updateAppointmentStatus = async (req, res) => {

@@ -103,6 +103,13 @@ function App() {
 
           <div className="hidden items-center gap-3 md:flex">
             <Link
+              to="/about-developer"
+              className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#52615a] transition hover:bg-[#eef3ee]"
+            >
+              Developer
+            </Link>
+
+            <Link
               to="/login"
               className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#173b31] transition hover:bg-[#eef3ee]"
             >
@@ -166,6 +173,14 @@ function App() {
               >
                 Contact
               </MobileLink>
+
+              <Link
+                to="/about-developer"
+                className="rounded-full border border-[#dfe6e1] px-5 py-3 text-center text-sm font-semibold text-[#52615a]"
+                onClick={() => setMobileMenu(false)}
+              >
+                Developer
+              </Link>
 
               <Link
                 to="/login"

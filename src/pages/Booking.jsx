@@ -42,7 +42,7 @@ const unusedLegacyPets = [
 ]
 */
 
-const SLOT_INTERVAL_MINUTES = 15
+const SLOT_INTERVAL_MINUTES = 30
 const MORNING_SESSION = { startHour: 9, endHour: 13 }
 const EVENING_SESSION = { startHour: 16, endHour: 22 }
 
@@ -269,36 +269,40 @@ export default function Booking() {
       return
     }
 
+    if (step === "online-payment" || step === "clinic-payment") {
+      setStep(6)
+      return
+    }
+
     setStep((current) => Math.max(1, current - 1))
   }
 
   const [bookedAppointment, setBookedAppointment] = useState(null)
 
-  const confirmBooking = async () => {
+  // The slot is only actually reserved once payment succeeds (see
+  // PaymentGate + paymentController.verifyPayment) — confirming here just
+  // moves to the payment step with the selection carried along as
+  // bookingDetails, it doesn't create the appointment yet.
+  const bookingDetails = {
+    petId: selectedPet?._id,
+    doctorId: selectedDoctor?._id,
+    service: selectedService?.title,
+    type: selectedType?.id,
+    date: selectedDate?.dateKey,
+    startTime: selectedTime,
+  }
+
+  const confirmBooking = () => {
     setBookingError("")
-    try {
-      const response = await apiRequest("/appointments", {
-        method: "POST",
-        body: JSON.stringify({
-          petId: selectedPet._id,
-          doctorId: selectedDoctor._id,
-          service: selectedService.title,
-          type: selectedType.id,
-          date: selectedDate.dateKey,
-          startTime: selectedTime,
-          endTime: selectedTime,
-        }),
-      })
+    setStep(selectedType.id === "online" ? "online-payment" : "clinic-payment")
+  }
 
-      setBookedAppointment(response.appointment)
-      if (response.googleCalendarStatus) {
-        localStorage.setItem("lastGoogleCalendarStatus", response.googleCalendarStatus)
-      }
-
-      setStep(selectedType.id === "online" ? "online-payment" : 7)
-    } catch (error) {
-      setBookingError(error.message || "Unable to book the appointment.")
+  const handlePaid = (result) => {
+    setBookedAppointment(result.appointment)
+    if (result.googleCalendarStatus) {
+      localStorage.setItem("lastGoogleCalendarStatus", result.googleCalendarStatus)
     }
+    setStep(7)
   }
 
   return (
@@ -842,7 +846,7 @@ export default function Booking() {
             purpose="phone_consultation"
             user={user}
             title="Pay to get the clinic's number"
-            description="Phone consultations start with a quick ₹200 fee — once paid, we'll show you the number to call."
+            description="Phone consultations start with a quick consultation fee — once paid, we'll show you the number to call."
             onPaid={() => setStep("phone")}
             onBack={previousStep}
           />
@@ -860,12 +864,24 @@ export default function Booking() {
         {step === "online-payment" && (
           <PaymentGate
             purpose="online_consultation"
-            appointmentId={bookedAppointment?._id || bookedAppointment?.id}
+            bookingDetails={bookingDetails}
             user={user}
             title="Pay to confirm your online consultation"
-            description="Your slot is booked. Pay the ₹200 consultation fee to get the call-to-confirm number and your Google Meet link."
-            onPaid={() => setStep(7)}
-            onBack={() => navigate("/dashboard")}
+            description="Pay the consultation fee to reserve your slot and get the call-to-confirm number and your Google Meet link."
+            onPaid={handlePaid}
+            onBack={previousStep}
+          />
+        )}
+
+        {step === "clinic-payment" && (
+          <PaymentGate
+            purpose="clinic_visit"
+            bookingDetails={bookingDetails}
+            user={user}
+            title="Pay to confirm your appointment"
+            description="Pay the consultation fee to reserve your slot at the clinic."
+            onPaid={handlePaid}
+            onBack={previousStep}
           />
         )}
 

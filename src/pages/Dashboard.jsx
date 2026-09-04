@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext"
 import apiRequest from "../lib/api"
 import Logo from "../components/Logo"
 import EmptyState from "../components/EmptyState"
+import OnboardingTour, { hasSeenOnboarding } from "../components/OnboardingTour"
 
 const icon = { Dog: "🐕", Cat: "🐈", Bird: "🦜", Rabbit: "🐇", Other: "🐾" }
 const age = (d) =>
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [pets, setPets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     apiRequest("/pets")
@@ -25,6 +27,12 @@ export default function Dashboard() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (user?.id && !hasSeenOnboarding(user.id)) {
+      setShowOnboarding(true)
+    }
+  }, [user?.id])
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#17221e]">
@@ -142,6 +150,10 @@ export default function Dashboard() {
           </Link>
         </section>
       </main>
+
+      {showOnboarding && (
+        <OnboardingTour userId={user?.id} onClose={() => setShowOnboarding(false)} />
+      )}
     </div>
   )
 }

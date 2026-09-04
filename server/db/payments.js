@@ -10,6 +10,10 @@ export const ensurePaymentsExtensions = async () => {
   await pool.query("alter table public.payments add column if not exists method text not null default 'razorpay'")
   await pool.query("alter table public.payments add column if not exists recorded_by uuid references public.profiles(id)")
   await pool.query("alter table public.payments add column if not exists notes text")
+  // Holds the pending booking selection (pet/doctor/service/date/time) for
+  // an online/clinic slot payment — the slot is only actually reserved
+  // (appointment_id set) once the payment is verified.
+  await pool.query("alter table public.payments add column if not exists booking_details jsonb")
   await pool.query("alter table public.payments drop constraint if exists payments_purpose_check")
   await pool.query(`
     alter table public.payments add constraint payments_purpose_check
@@ -22,12 +26,12 @@ export const ensurePaymentsExtensions = async () => {
   `)
 }
 
-export const createPaymentRecord = async ({ ownerId, appointmentId, purpose, amountPaise, razorpayOrderId }) => {
+export const createPaymentRecord = async ({ ownerId, purpose, amountPaise, razorpayOrderId, bookingDetails, appointmentId }) => {
   const { rows } = await pool.query(
-    `insert into public.payments (owner_id, appointment_id, purpose, amount_paise, razorpay_order_id, status)
-     values ($1, $2, $3, $4, $5, 'created')
+    `insert into public.payments (owner_id, purpose, amount_paise, razorpay_order_id, status, booking_details, appointment_id)
+     values ($1, $2, $3, $4, 'created', $5, $6)
      returning *`,
-    [ownerId, appointmentId || null, purpose, amountPaise, razorpayOrderId]
+    [ownerId, purpose, amountPaise, razorpayOrderId, bookingDetails ? JSON.stringify(bookingDetails) : null, appointmentId || null]
   )
   return rows[0]
 }
@@ -37,13 +41,13 @@ export const findPaymentById = async (id) => {
   return rows[0] || null
 }
 
-export const markPaymentPaid = async (id, razorpayPaymentId) => {
+export const markPaymentPaid = async (id, razorpayPaymentId, appointmentId) => {
   const { rows } = await pool.query(
     `update public.payments
-     set status = 'paid', razorpay_payment_id = $2, updated_at = now()
+     set status = 'paid', razorpay_payment_id = $2, appointment_id = coalesce($3, appointment_id), updated_at = now()
      where id = $1
      returning *`,
-    [id, razorpayPaymentId]
+    [id, razorpayPaymentId, appointmentId || null]
   )
   return rows[0]
 }

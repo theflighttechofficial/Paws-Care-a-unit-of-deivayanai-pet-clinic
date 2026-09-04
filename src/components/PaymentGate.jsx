@@ -1,19 +1,32 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowRight, ChevronLeft, CreditCard, ShieldCheck } from "lucide-react"
+import { ArrowRight, ChevronLeft, CreditCard, ShieldAlert, ShieldCheck } from "lucide-react"
 import apiRequest from "../lib/api"
+import ErrorNotice from "./ErrorNotice"
 
-// Gates a phone/online consultation behind a flat ₹200 Razorpay payment.
+// Gates a phone/online/clinic booking behind a Razorpay payment. For
+// online/clinic purposes, bookingDetails carries the pending slot
+// selection — the slot itself is only reserved by the backend once
+// payment verification succeeds (see paymentController.verifyPayment).
 // The checkout.js script is loaded globally in index.html.
-export default function PaymentGate({ purpose, appointmentId, user, title, description, onPaid, onBack }) {
+export default function PaymentGate({ purpose, bookingDetails, appointmentId, user, title, description, onPaid, onBack }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [feePaise, setFeePaise] = useState(null)
+
+  useEffect(() => {
+    apiRequest("/settings")
+      .then((data) => setFeePaise(data.consultationFeePaise))
+      .catch(() => {})
+  }, [])
+
+  const feeRupees = feePaise != null ? feePaise / 100 : null
 
   const startPayment = async () => {
     setError("")
 
     if (!window.Razorpay) {
-      setError("Payment couldn't load. Please check your connection and try again.")
+      setError("Payment couldn't load. If you have an ad blocker or privacy extension enabled, please turn it off for this site and try again.")
       return
     }
 
@@ -21,7 +34,7 @@ export default function PaymentGate({ purpose, appointmentId, user, title, descr
     try {
       const order = await apiRequest("/payments/create-order", {
         method: "POST",
-        body: JSON.stringify({ purpose, appointmentId }),
+        body: JSON.stringify({ purpose, bookingDetails, appointmentId }),
       })
 
       const razorpay = new window.Razorpay({
@@ -39,7 +52,7 @@ export default function PaymentGate({ purpose, appointmentId, user, title, descr
         theme: { color: "#173b31" },
         handler: async (response) => {
           try {
-            await apiRequest("/payments/verify", {
+            const result = await apiRequest("/payments/verify", {
               method: "POST",
               body: JSON.stringify({
                 paymentId: order.paymentId,
@@ -48,7 +61,7 @@ export default function PaymentGate({ purpose, appointmentId, user, title, descr
                 razorpay_signature: response.razorpay_signature,
               }),
             })
-            onPaid()
+            onPaid(result)
           } catch (err) {
             setError(err.message || "Payment verification failed. Please contact the clinic.")
           } finally {
@@ -90,23 +103,31 @@ export default function PaymentGate({ purpose, appointmentId, user, title, descr
 
       <div className="mx-auto mt-8 max-w-xs rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
         <p className="text-xs text-[#87928c]">Consultation fee</p>
-        <p className="mt-1 text-4xl font-semibold tracking-[-0.04em]">₹200</p>
+        <p className="mt-1 text-4xl font-semibold tracking-[-0.04em]">
+          {feeRupees != null ? `₹${feeRupees}` : "…"}
+        </p>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-[#87928c]">
           <ShieldCheck size={12} />
           Secured by Razorpay
         </p>
       </div>
 
-      {error && (
-        <p className="mx-auto mt-5 max-w-md rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
-      )}
+      <div className="mx-auto mt-5 flex max-w-md items-start gap-2.5 rounded-2xl border border-[#f0e2c0] bg-[#fdf7e9] px-4 py-3 text-left text-xs leading-5 text-[#8a6d2f]">
+        <ShieldAlert size={15} className="mt-0.5 shrink-0" />
+        <p>
+          Using an ad blocker or privacy extension? Please turn it off for this site — some
+          blockers prevent the Razorpay payment window from loading.
+        </p>
+      </div>
+
+      {error && <ErrorNotice message={error} className="mx-auto max-w-md" />}
 
       <button
         onClick={startPayment}
-        disabled={loading}
+        disabled={loading || feeRupees == null}
         className="mx-auto mt-6 flex w-fit items-center gap-3 rounded-full bg-[#173b31] px-8 py-4 text-base font-semibold text-white transition hover:bg-[#285b4c] disabled:opacity-60"
       >
-        {loading ? "Opening payment…" : "Pay ₹200"}
+        {loading ? "Opening payment…" : feeRupees != null ? `Pay ₹${feeRupees}` : "Loading…"}
         <ArrowRight size={16} />
       </button>
 

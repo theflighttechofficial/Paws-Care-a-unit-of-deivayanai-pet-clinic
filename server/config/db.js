@@ -5,6 +5,7 @@ import { ensureServicesTable } from "../db/services.js"
 import { ensureReminderColumn } from "../db/appointments.js"
 import { ensurePaymentsExtensions } from "../db/payments.js"
 import { ensureRatingsTable } from "../db/ratings.js"
+import { ensureAppSettingsTable } from "../db/settings.js"
 
 // Must run before the Pool below reads process.env.DATABASE_URL — ESM
 // imports are evaluated before the importing module's own top-level code,
@@ -34,6 +35,7 @@ const connectDB = async () => {
     await ensureReminderColumn()
     await ensurePaymentsExtensions()
     await ensureRatingsTable()
+    await ensureAppSettingsTable()
     return pool
   } catch (error) {
     console.error("Postgres connection failed:", error.message)
