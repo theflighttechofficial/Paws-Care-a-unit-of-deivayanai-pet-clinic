@@ -2,15 +2,15 @@ import { Resend } from "resend"
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
-// resend.dev's shared sandbox sender works without verifying a domain, but
-// can only deliver to the email address the Resend account was signed up
-// with. Verify a real domain in the Resend dashboard and set RESEND_FROM
-// (e.g. "Paws & Care <noreply@yourdomain.com>") to email any recipient.
-const FROM = process.env.RESEND_FROM || "Paws & Care <onboarding@resend.dev>"
+// No fallback to Resend's shared onboarding@resend.dev sandbox sender —
+// that address can only deliver to the Resend account's own signup email
+// and must never be used for real customer-facing mail. RESEND_FROM must
+// be explicitly set to the verified domain (e.g. "Paws & Care <noreply@yourdomain.com>").
+const FROM = process.env.RESEND_FROM
 
 export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
-  if (!resend) {
-    throw new Error("RESEND_API_KEY is not configured.")
+  if (!resend || !FROM) {
+    throw new Error("RESEND_API_KEY and RESEND_FROM must both be configured.")
   }
 
   const { error } = await resend.emails.send({
@@ -46,8 +46,8 @@ const formatReminderDate = (date, time) => {
 }
 
 export const sendAppointmentReminderEmail = async (toEmail, appointment) => {
-  if (!resend) {
-    throw new Error("RESEND_API_KEY is not configured.")
+  if (!resend || !FROM) {
+    throw new Error("RESEND_API_KEY and RESEND_FROM must both be configured.")
   }
 
   const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
@@ -73,8 +73,8 @@ export const sendAppointmentReminderEmail = async (toEmail, appointment) => {
 }
 
 export const sendDoctorNewAppointmentEmail = async (toEmail, appointment) => {
-  if (!resend) {
-    throw new Error("RESEND_API_KEY is not configured.")
+  if (!resend || !FROM) {
+    throw new Error("RESEND_API_KEY and RESEND_FROM must both be configured.")
   }
 
   const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
@@ -100,8 +100,8 @@ export const sendDoctorNewAppointmentEmail = async (toEmail, appointment) => {
 }
 
 export const sendOwnerBookingConfirmationEmail = async (toEmail, appointment) => {
-  if (!resend) {
-    throw new Error("RESEND_API_KEY is not configured.")
+  if (!resend || !FROM) {
+    throw new Error("RESEND_API_KEY and RESEND_FROM must both be configured.")
   }
 
   const when = formatReminderDate(appointment.appointment_date, appointment.appointment_time)
