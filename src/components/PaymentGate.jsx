@@ -16,9 +16,11 @@ export default function PaymentGate({ purpose, bookingDetails, appointmentId, us
 
   useEffect(() => {
     apiRequest("/settings")
-      .then((data) => setFeePaise(data.consultationFeePaise))
+      .then((data) => {
+        setFeePaise(purpose === "phone_consultation" ? data.phoneConsultationFeePaise : data.onlineConsultationFeePaise)
+      })
       .catch(() => {})
-  }, [])
+  }, [purpose])
 
   const feeRupees = feePaise != null ? feePaise / 100 : null
 

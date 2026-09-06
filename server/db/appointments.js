@@ -141,6 +141,15 @@ export const createAppointment = async ({ ownerId, petId, doctorId, service, con
   return findAppointmentById(rows[0].id)
 }
 
+// Admin hard-delete. Safe against foreign keys: payments.appointment_id and
+// medical_records.appointment_id are ON DELETE SET NULL, and
+// appointment_ratings.appointment_id is ON DELETE CASCADE — Postgres
+// handles all of that automatically.
+export const deleteAppointmentById = async (id) => {
+  const { rowCount } = await pool.query("delete from public.appointments where id = $1", [id])
+  return rowCount > 0
+}
+
 export const updateAppointmentStatus = async (id, status) => {
   const { rows } = await pool.query(
     "update public.appointments set status = $2 where id = $1 returning id",

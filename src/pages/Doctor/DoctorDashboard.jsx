@@ -51,6 +51,19 @@ export default function DoctorDashboard() {
   const active = useMemo(() => appointments.filter((item) => !["completed", "cancelled"].includes(item.status)), [appointments])
   const online = active.filter((item) => item.type === "online").length
 
+  // Grouped by date (ascending) so the schedule reads day-by-day instead
+  // of one long list — appointments are already sorted date-then-time by
+  // the API, so grouping here just needs to preserve that order.
+  const appointmentsByDate = useMemo(() => {
+    const groups = new Map()
+    for (const appointment of appointments) {
+      const key = appointment.date || "unknown"
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(appointment)
+    }
+    return [...groups.entries()]
+  }, [appointments])
+
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#17221e]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-[#e1e7e2] bg-white p-6 lg:block">
@@ -63,7 +76,33 @@ export default function DoctorDashboard() {
         <div className="px-5 py-7 md:px-8 md:py-9">
           <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] bg-[#173b31] p-7 text-white"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#a7c5b3]">Today&apos;s practice</p><h2 className="mt-3 text-2xl font-semibold">Your patient visits, in one place.</h2><p className="mt-2 text-xs text-[#c2d4ca]">Open an appointment to review a patient&apos;s history and record their consultation.</p></motion.section>
           <section className="mt-6 grid gap-4 sm:grid-cols-3"><Stat icon={CalendarDays} value={active.length} label="Active appointments" /><Stat icon={Video} value={online} label="Online consultations" /><Stat icon={Users} value={appointments.filter((item) => item.status === "completed").length} label="Completed visits" /></section>
-          <section className="mt-7 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white"><div className="border-b border-[#edf0ed] px-6 py-5"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-[#4c806c]">Appointments</p><h2 className="mt-1 text-lg font-semibold">Your schedule</h2></div>{loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-[#f1f4f1]" />)}</div> : error ? <p className="p-6 text-sm text-[#a06b68]">{error}</p> : appointments.length ? <div className="p-3">{appointments.map((appointment) => <AppointmentRow key={appointment._id} appointment={appointment} />)}</div> : <div className="p-6"><EmptyState title="No appointments yet" description="New appointments assigned to you will appear here." /></div>}</section>
+          <section className="mt-7 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white">
+            <div className="border-b border-[#edf0ed] px-6 py-5">
+              <p className="text-[9px] font-bold uppercase tracking-[.16em] text-[#4c806c]">Appointments</p>
+              <h2 className="mt-1 text-lg font-semibold">Your schedule, date-wise</h2>
+            </div>
+            {loading ? (
+              <div className="space-y-3 p-5">
+                {[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-[#f1f4f1]" />)}
+              </div>
+            ) : error ? (
+              <p className="p-6 text-sm text-[#a06b68]">{error}</p>
+            ) : appointments.length ? (
+              appointmentsByDate.map(([dateValue, dateAppointments]) => (
+                <div key={dateValue} className="border-b border-[#edf0ed] last:border-0">
+                  <div className="flex items-center gap-2 bg-[#fafcfa] px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#4c806c]">
+                    <CalendarDays size={12} />
+                    {formatDate(dateValue)}
+                  </div>
+                  <div className="p-3">
+                    {dateAppointments.map((appointment) => <AppointmentRow key={appointment._id} appointment={appointment} />)}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-6"><EmptyState title="No appointments yet" description="New appointments assigned to you will appear here." /></div>
+            )}
+          </section>
 
           <div className="mt-6">
             <LeaveManager leaves={leaves} loading={leavesLoading} onAdd={addLeave} onRemove={removeLeave} />

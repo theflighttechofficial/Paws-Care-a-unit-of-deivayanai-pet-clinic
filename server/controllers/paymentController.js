@@ -2,7 +2,7 @@ import crypto from "crypto"
 import Razorpay from "razorpay"
 import { createManualPayment, createPaymentRecord, findPaymentById, listAllPayments, listPaymentsByOwner, markPaymentPaid } from "../db/payments.js"
 import { findAppointmentById } from "../db/appointments.js"
-import { getConsultationFeePaise } from "../db/settings.js"
+import { getOnlineConsultationFeePaise, getPhoneConsultationFeePaise } from "../db/settings.js"
 import { BookingError, bookAppointmentForOwner, validateBookingDetails } from "../services/bookingService.js"
 
 const VALID_PURPOSES = ["online_consultation", "phone_consultation", "clinic_visit"]
@@ -15,6 +15,14 @@ const purposeForConsultationType = (type) => {
   if (type === "online") return "online_consultation"
   if (type === "phone") return "phone_consultation"
   return "clinic_visit"
+}
+
+// Online and phone consultations are priced independently; clinic visits
+// aren't charged through Razorpay at all (kept here only so an order can't
+// silently price at ₹0 if this purpose is ever reached).
+const getFeeForPurpose = (purpose) => {
+  if (purpose === "phone_consultation") return getPhoneConsultationFeePaise()
+  return getOnlineConsultationFeePaise()
 }
 
 const getClient = () => {
@@ -72,7 +80,7 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const amountPaise = await getConsultationFeePaise()
+    const amountPaise = await getFeeForPurpose(purpose)
     if (!Number.isInteger(amountPaise) || amountPaise < 100) {
       return res.status(500).json({ message: "Consultation fee is misconfigured." })
     }

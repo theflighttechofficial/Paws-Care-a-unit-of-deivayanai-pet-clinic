@@ -26,11 +26,17 @@ export default function Settings() {
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
 
-  const [feeInput, setFeeInput] = useState("")
-  const [loadingFee, setLoadingFee] = useState(true)
-  const [savingFee, setSavingFee] = useState(false)
-  const [feeError, setFeeError] = useState("")
-  const [feeSaved, setFeeSaved] = useState(false)
+  const [onlineFeeInput, setOnlineFeeInput] = useState("")
+  const [savingOnlineFee, setSavingOnlineFee] = useState(false)
+  const [onlineFeeError, setOnlineFeeError] = useState("")
+  const [onlineFeeSaved, setOnlineFeeSaved] = useState(false)
+
+  const [phoneFeeInput, setPhoneFeeInput] = useState("")
+  const [savingPhoneFee, setSavingPhoneFee] = useState(false)
+  const [phoneFeeError, setPhoneFeeError] = useState("")
+  const [phoneFeeSaved, setPhoneFeeSaved] = useState(false)
+
+  const [loadingFees, setLoadingFees] = useState(true)
 
   const [scheduleForm, setScheduleForm] = useState(null)
   const [loadingSchedule, setLoadingSchedule] = useState(true)
@@ -41,39 +47,66 @@ export default function Settings() {
   useEffect(() => {
     apiRequest("/settings")
       .then((data) => {
-        setFeeInput(String((data.consultationFeePaise ?? 0) / 100))
+        setOnlineFeeInput(String((data.onlineConsultationFeePaise ?? 0) / 100))
+        setPhoneFeeInput(String((data.phoneConsultationFeePaise ?? 0) / 100))
         if (data.bookingSchedule) setScheduleForm(scheduleToForm(data.bookingSchedule))
       })
-      .catch((error) => setFeeError(error.message || "Unable to load the consultation fee."))
+      .catch((error) => setOnlineFeeError(error.message || "Unable to load consultation fees."))
       .finally(() => {
-        setLoadingFee(false)
+        setLoadingFees(false)
         setLoadingSchedule(false)
       })
   }, [])
 
-  const saveFee = async (event) => {
+  const saveOnlineFee = async (event) => {
     event.preventDefault()
-    setFeeError("")
-    setFeeSaved(false)
+    setOnlineFeeError("")
+    setOnlineFeeSaved(false)
 
-    const rupees = Number(feeInput)
+    const rupees = Number(onlineFeeInput)
     if (!Number.isFinite(rupees) || rupees < 1) {
-      setFeeError("Enter a valid amount (minimum ₹1).")
+      setOnlineFeeError("Enter a valid amount (minimum ₹1).")
       return
     }
 
-    setSavingFee(true)
+    setSavingOnlineFee(true)
     try {
-      const data = await apiRequest("/admin/settings/fee", {
+      const data = await apiRequest("/admin/settings/fee/online", {
         method: "PUT",
         body: JSON.stringify({ amountPaise: Math.round(rupees * 100) }),
       })
-      setFeeInput(String((data.consultationFeePaise ?? 0) / 100))
-      setFeeSaved(true)
+      setOnlineFeeInput(String((data.onlineConsultationFeePaise ?? 0) / 100))
+      setOnlineFeeSaved(true)
     } catch (error) {
-      setFeeError(error.message || "Unable to update the fee.")
+      setOnlineFeeError(error.message || "Unable to update the fee.")
     } finally {
-      setSavingFee(false)
+      setSavingOnlineFee(false)
+    }
+  }
+
+  const savePhoneFee = async (event) => {
+    event.preventDefault()
+    setPhoneFeeError("")
+    setPhoneFeeSaved(false)
+
+    const rupees = Number(phoneFeeInput)
+    if (!Number.isFinite(rupees) || rupees < 1) {
+      setPhoneFeeError("Enter a valid amount (minimum ₹1).")
+      return
+    }
+
+    setSavingPhoneFee(true)
+    try {
+      const data = await apiRequest("/admin/settings/fee/phone", {
+        method: "PUT",
+        body: JSON.stringify({ amountPaise: Math.round(rupees * 100) }),
+      })
+      setPhoneFeeInput(String((data.phoneConsultationFeePaise ?? 0) / 100))
+      setPhoneFeeSaved(true)
+    } catch (error) {
+      setPhoneFeeError(error.message || "Unable to update the fee.")
+    } finally {
+      setSavingPhoneFee(false)
     }
   }
 
@@ -208,52 +241,34 @@ export default function Settings() {
 
           <div className="mt-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4c806c]">Payments</p>
-            <h2 className="mt-2 text-xl font-semibold">Consultation fee</h2>
+            <h2 className="mt-2 text-xl font-semibold">Consultation fees</h2>
             <p className="mt-2 text-sm leading-6 text-[#718079]">
-              This is the amount charged via Razorpay to reserve a clinic or online consultation slot.
+              Online and phone consultations are priced independently via Razorpay. Clinic visits aren't charged.
             </p>
           </div>
 
-          <div className="mt-4 rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
-            {loadingFee ? (
-              <div className="h-11 animate-pulse rounded-2xl bg-[#f1f4f1]" />
-            ) : (
-              <form onSubmit={saveFee} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                <label className="block flex-1">
-                  <span className="mb-2 block text-xs font-semibold text-[#52615a]">Amount (₹)</span>
-                  <div className="relative">
-                    <IndianRupee size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa59f]" />
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={feeInput}
-                      onChange={(event) => setFeeInput(event.target.value)}
-                      className="w-full rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] py-3 pl-10 pr-4 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
-                    />
-                  </div>
-                </label>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FeeCard
+              label="Online consultation fee"
+              loading={loadingFees}
+              value={onlineFeeInput}
+              onChange={setOnlineFeeInput}
+              onSubmit={saveOnlineFee}
+              saving={savingOnlineFee}
+              saved={onlineFeeSaved}
+              error={onlineFeeError}
+            />
 
-                <button
-                  type="submit"
-                  disabled={savingFee}
-                  className="rounded-full bg-[#173b31] px-6 py-3 text-xs font-semibold text-white disabled:opacity-60"
-                >
-                  {savingFee ? "Saving…" : "Save"}
-                </button>
-              </form>
-            )}
-
-            {feeSaved && (
-              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-[#e4f1e7] px-4 py-3 text-sm text-[#397051]">
-                <CheckCircle2 size={16} />
-                Consultation fee updated.
-              </div>
-            )}
-
-            {feeError && (
-              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{feeError}</p>
-            )}
+            <FeeCard
+              label="Phone consultation fee"
+              loading={loadingFees}
+              value={phoneFeeInput}
+              onChange={setPhoneFeeInput}
+              onSubmit={savePhoneFee}
+              saving={savingPhoneFee}
+              saved={phoneFeeSaved}
+              error={phoneFeeError}
+            />
           </div>
 
           <div className="mt-8">
@@ -410,6 +425,49 @@ export default function Settings() {
           </div>
         </div>
       </main>
+    </div>
+  )
+}
+
+function FeeCard({ label, loading, value, onChange, onSubmit, saving, saved, error }) {
+  return (
+    <div className="rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
+      <span className="mb-2 block text-xs font-semibold text-[#52615a]">{label}</span>
+
+      {loading ? (
+        <div className="h-11 animate-pulse rounded-2xl bg-[#f1f4f1]" />
+      ) : (
+        <form onSubmit={onSubmit} className="flex items-end gap-3">
+          <div className="relative flex-1">
+            <IndianRupee size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa59f]" />
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              className="w-full rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] py-3 pl-10 pr-4 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-full bg-[#173b31] px-5 py-3 text-xs font-semibold text-white disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      )}
+
+      {saved && (
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-[#e4f1e7] px-4 py-3 text-sm text-[#397051]">
+          <CheckCircle2 size={16} />
+          Updated.
+        </div>
+      )}
+
+      {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

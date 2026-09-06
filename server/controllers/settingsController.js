@@ -1,19 +1,43 @@
-import { getBookingSchedule, getConsultationFeePaise, setBookingSchedule, setConsultationFeePaise } from "../db/settings.js"
+import {
+  getBookingSchedule,
+  getOnlineConsultationFeePaise,
+  getPhoneConsultationFeePaise,
+  setBookingSchedule,
+  setOnlineConsultationFeePaise,
+  setPhoneConsultationFeePaise,
+} from "../db/settings.js"
 
 export const getPublicSettings = async (req, res) => {
-  const [consultationFeePaise, bookingSchedule] = await Promise.all([getConsultationFeePaise(), getBookingSchedule()])
-  return res.json({ consultationFeePaise, bookingSchedule })
+  const [onlineConsultationFeePaise, phoneConsultationFeePaise, bookingSchedule] = await Promise.all([
+    getOnlineConsultationFeePaise(),
+    getPhoneConsultationFeePaise(),
+    getBookingSchedule(),
+  ])
+  return res.json({ onlineConsultationFeePaise, phoneConsultationFeePaise, bookingSchedule })
 }
 
-export const updateConsultationFee = async (req, res) => {
+const validateFeeAmount = (amountPaise) => Number.isInteger(amountPaise) && amountPaise >= 100
+
+export const updateOnlineConsultationFee = async (req, res) => {
   const { amountPaise } = req.body
 
-  if (!Number.isInteger(amountPaise) || amountPaise < 100) {
+  if (!validateFeeAmount(amountPaise)) {
     return res.status(400).json({ message: "Amount must be a whole number of at least 100 paise (₹1)." })
   }
 
-  const settings = await setConsultationFeePaise(amountPaise)
-  return res.json({ message: "Consultation fee updated.", consultationFeePaise: settings.consultation_fee_paise })
+  const settings = await setOnlineConsultationFeePaise(amountPaise)
+  return res.json({ message: "Online consultation fee updated.", onlineConsultationFeePaise: settings.online_consultation_fee_paise })
+}
+
+export const updatePhoneConsultationFee = async (req, res) => {
+  const { amountPaise } = req.body
+
+  if (!validateFeeAmount(amountPaise)) {
+    return res.status(400).json({ message: "Amount must be a whole number of at least 100 paise (₹1)." })
+  }
+
+  const settings = await setPhoneConsultationFeePaise(amountPaise)
+  return res.json({ message: "Phone consultation fee updated.", phoneConsultationFeePaise: settings.phone_consultation_fee_paise })
 }
 
 const isValidSession = (session) =>

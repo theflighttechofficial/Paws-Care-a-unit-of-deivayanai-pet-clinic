@@ -30,16 +30,43 @@ export const ensureAppSettingsTable = async () => {
     `update public.app_settings set booking_schedule = $1 where id = true and booking_schedule is null`,
     [JSON.stringify(DEFAULT_BOOKING_SCHEDULE)]
   )
+
+  // Online and phone consultations now have independently configurable
+  // fees (clinic visits don't charge at all). Both backfill from the old
+  // single consultation_fee_paise value so nothing changes for anyone
+  // until an admin actually edits one of them.
+  await pool.query("alter table public.app_settings add column if not exists online_consultation_fee_paise integer")
+  await pool.query("alter table public.app_settings add column if not exists phone_consultation_fee_paise integer")
+  await pool.query(
+    `update public.app_settings
+     set online_consultation_fee_paise = coalesce(online_consultation_fee_paise, consultation_fee_paise, $1),
+         phone_consultation_fee_paise = coalesce(phone_consultation_fee_paise, consultation_fee_paise, $1)
+     where id = true`,
+    [DEFAULT_CONSULTATION_FEE_PAISE]
+  )
 }
 
-export const getConsultationFeePaise = async () => {
-  const { rows } = await pool.query("select consultation_fee_paise from public.app_settings where id = true")
-  return rows[0]?.consultation_fee_paise ?? DEFAULT_CONSULTATION_FEE_PAISE
+export const getOnlineConsultationFeePaise = async () => {
+  const { rows } = await pool.query("select online_consultation_fee_paise from public.app_settings where id = true")
+  return rows[0]?.online_consultation_fee_paise ?? DEFAULT_CONSULTATION_FEE_PAISE
 }
 
-export const setConsultationFeePaise = async (amountPaise) => {
+export const setOnlineConsultationFeePaise = async (amountPaise) => {
   const { rows } = await pool.query(
-    `update public.app_settings set consultation_fee_paise = $1, updated_at = now() where id = true returning *`,
+    `update public.app_settings set online_consultation_fee_paise = $1, updated_at = now() where id = true returning *`,
+    [amountPaise]
+  )
+  return rows[0]
+}
+
+export const getPhoneConsultationFeePaise = async () => {
+  const { rows } = await pool.query("select phone_consultation_fee_paise from public.app_settings where id = true")
+  return rows[0]?.phone_consultation_fee_paise ?? DEFAULT_CONSULTATION_FEE_PAISE
+}
+
+export const setPhoneConsultationFeePaise = async (amountPaise) => {
+  const { rows } = await pool.query(
+    `update public.app_settings set phone_consultation_fee_paise = $1, updated_at = now() where id = true returning *`,
     [amountPaise]
   )
   return rows[0]

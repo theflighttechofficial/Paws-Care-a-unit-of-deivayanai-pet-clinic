@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Filter,
   Search,
+  Trash2,
   Video,
   XCircle,
 } from "lucide-react"
@@ -15,6 +16,9 @@ import AdminSidebar from "../../components/AdminSidebar"
 
 const statusOptions = ["All", "confirmed", "pending", "completed", "cancelled"]
 
+const formatDateLabel = (value) =>
+  new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(value))
+
 export default function Appointments() {
   const { logout } = useAuth()
   const [appointments, setAppointments] = useState([])
@@ -23,7 +27,9 @@ export default function Appointments() {
 
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("All")
+  const [dateFilter, setDateFilter] = useState("All")
   const [markPaidTarget, setMarkPaidTarget] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     apiRequest("/admin/appointments")
@@ -31,6 +37,17 @@ export default function Appointments() {
       .catch((requestError) => setError(requestError.message || "Unable to load appointments."))
       .finally(() => setLoading(false))
   }, [])
+
+  // Distinct appointment dates, in the exact form they come back from the
+  // API — used as-is for both the filter dropdown and grouping, so there's
+  // no risk of a display/filter mismatch from re-deriving the date twice.
+  const availableDates = useMemo(() => {
+    const seen = new Map()
+    for (const appointment of appointments) {
+      if (appointment.date && !seen.has(appointment.date)) seen.set(appointment.date, formatDateLabel(appointment.date))
+    }
+    return [...seen.entries()].sort(([a], [b]) => new Date(a) - new Date(b))
+  }, [appointments])
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((appointment) => {
@@ -42,10 +59,36 @@ export default function Appointments() {
         appointment.doctor?.name?.toLowerCase().includes(term)
 
       const matchesStatus = status === "All" || appointment.status === status
+      const matchesDate = dateFilter === "All" || appointment.date === dateFilter
 
-      return matchesSearch && matchesStatus
+      return matchesSearch && matchesStatus && matchesDate
     })
-  }, [appointments, search, status])
+  }, [appointments, search, status, dateFilter])
+
+  // Grouped by date (ascending) so the list reads as a day-by-day
+  // schedule instead of one long undifferentiated table.
+  const groupedByDate = useMemo(() => {
+    const groups = new Map()
+    for (const appointment of filteredAppointments) {
+      const key = appointment.date || "unknown"
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(appointment)
+    }
+    return [...groups.entries()].sort(([a], [b]) => new Date(a) - new Date(b))
+  }, [filteredAppointments])
+
+  const deleteAppointment = async (id) => {
+    if (!window.confirm("Permanently delete this appointment? This can't be undone.")) return
+    setDeletingId(id)
+    try {
+      await apiRequest(`/admin/appointments/${id}`, { method: "DELETE" })
+      setAppointments((current) => current.filter((appointment) => appointment._id !== id))
+    } catch (requestError) {
+      setError(requestError.message || "Unable to delete appointment.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const updateStatus = async (id, newStatus) => {
     const previous = appointments
@@ -170,52 +213,86 @@ export default function Appointments() {
               />
             </div>
 
-            <div className="flex items-center justify-center gap-2 rounded-2xl border border-[#dfe6e1] bg-white px-5 py-3 text-sm font-semibold">
-              <CalendarDays size={16} />
-              {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}
+            <div className="relative">
+              <CalendarDays
+                size={15}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#87928c]"
+              />
+
+              <select
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                className="appearance-none rounded-2xl border border-[#dfe6e1] bg-white py-3.5 pl-10 pr-10 text-sm outline-none"
+              >
+                <option value="All">All dates</option>
+                {availableDates.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
+              />
             </div>
           </div>
 
           {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-          {/* APPOINTMENTS */}
+          {/* APPOINTMENTS, grouped date-wise */}
 
-          <div className="mt-6 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white">
-            <div className="hidden grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_80px] gap-4 border-b border-[#edf0ed] bg-[#fafbfa] px-6 py-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9aa59f] md:grid">
-              <span>Time</span>
-              <span>Patient</span>
-              <span>Service</span>
-              <span>Doctor</span>
-              <span>Status</span>
-              <span>Payment</span>
-              <span />
+          {loading && (
+            <div className="mt-6 space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="h-16 animate-pulse rounded-2xl bg-[#f1f4f1]" />
+              ))}
             </div>
+          )}
 
-            {loading && (
-              <div className="space-y-3 p-5">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-16 animate-pulse rounded-2xl bg-[#f1f4f1]" />
+          {!loading &&
+            groupedByDate.map(([dateValue, dateAppointments]) => (
+              <div key={dateValue} className="mt-6 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white">
+                <div className="flex items-center gap-2 border-b border-[#edf0ed] bg-[#fafbfa] px-6 py-3.5 text-xs font-semibold text-[#285b4c]">
+                  <CalendarDays size={13} />
+                  {formatDateLabel(dateValue)}
+                  <span className="ml-1 text-[10px] font-normal text-[#9aa59f]">
+                    ({dateAppointments.length} appointment{dateAppointments.length === 1 ? "" : "s"})
+                  </span>
+                </div>
+
+                <div className="hidden grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_110px] gap-4 border-b border-[#edf0ed] bg-[#fafbfa] px-6 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9aa59f] md:grid">
+                  <span>Time</span>
+                  <span>Patient</span>
+                  <span>Service</span>
+                  <span>Doctor</span>
+                  <span>Status</span>
+                  <span>Payment</span>
+                  <span />
+                </div>
+
+                {dateAppointments.map((appointment) => (
+                  <AppointmentRow
+                    key={appointment._id}
+                    appointment={appointment}
+                    onStatusChange={updateStatus}
+                    onMarkPaid={setMarkPaidTarget}
+                    onDelete={deleteAppointment}
+                    deleting={deletingId === appointment._id}
+                  />
                 ))}
               </div>
-            )}
+            ))}
 
-            {!loading &&
-              filteredAppointments.map((appointment) => (
-                <AppointmentRow
-                  key={appointment._id}
-                  appointment={appointment}
-                  onStatusChange={updateStatus}
-                  onMarkPaid={setMarkPaidTarget}
-                />
-              ))}
-
-            {!loading && filteredAppointments.length === 0 && (
+          {!loading && filteredAppointments.length === 0 && (
+            <div className="mt-6 overflow-hidden rounded-[2rem] border border-[#e1e7e2] bg-white">
               <EmptyState
                 title="No appointments found"
                 description="Try changing your search or filter."
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -236,6 +313,8 @@ function AppointmentRow({
   appointment,
   onStatusChange,
   onMarkPaid,
+  onDelete,
+  deleting,
 }) {
   const paymentLabel = {
     paid: "Paid",
@@ -253,7 +332,7 @@ function AppointmentRow({
 
   return (
     <div className="border-b border-[#edf0ed] px-6 py-5 last:border-0">
-      <div className="grid gap-5 md:grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_80px] md:items-center md:gap-4">
+      <div className="grid gap-5 md:grid-cols-[100px_1fr_1fr_0.9fr_110px_100px_110px] md:items-center md:gap-4">
         <div>
           <p className="text-sm font-semibold">
             {appointment.startTime}
@@ -336,15 +415,27 @@ function AppointmentRow({
           )}
         </div>
 
-        <button
-          onClick={() => canCancel && onStatusChange(appointment._id, "cancelled")}
-          disabled={!canCancel}
-          title={canCancel ? "Cancel booking" : "Already cancelled or completed"}
-          className="flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <XCircle size={12} />
-          Cancel
-        </button>
+        <div className="flex flex-col items-start gap-1.5">
+          <button
+            onClick={() => canCancel && onStatusChange(appointment._id, "cancelled")}
+            disabled={!canCancel}
+            title={canCancel ? "Cancel booking" : "Already cancelled or completed"}
+            className="flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <XCircle size={12} />
+            Cancel
+          </button>
+
+          <button
+            onClick={() => onDelete(appointment._id)}
+            disabled={deleting}
+            title="Permanently delete this appointment"
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-semibold text-[#9aa59f] hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 size={12} />
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
       </div>
     </div>
   )

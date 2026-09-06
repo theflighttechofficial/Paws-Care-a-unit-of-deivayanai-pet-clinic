@@ -292,8 +292,12 @@ export async function apiRequest(path, options = {}) {
     return request("/settings")
   }
 
-  if (path === "/admin/settings/fee" && method === "PUT") {
-    return request("/admin/settings/fee", { method: "PUT", body: options.body })
+  if (path === "/admin/settings/fee/online" && method === "PUT") {
+    return request("/admin/settings/fee/online", { method: "PUT", body: options.body })
+  }
+
+  if (path === "/admin/settings/fee/phone" && method === "PUT") {
+    return request("/admin/settings/fee/phone", { method: "PUT", body: options.body })
   }
 
   if (path === "/admin/settings/schedule" && method === "PUT") {
@@ -397,6 +401,10 @@ export async function apiRequest(path, options = {}) {
   if (path === "/admin/appointments") {
     const data = await request("/admin/appointments")
     return { success: true, appointments: (data.appointments || []).map(normalizeAppointment) }
+  }
+
+  if (path.startsWith("/admin/appointments/") && method === "DELETE") {
+    return request(path, { method: "DELETE" })
   }
 
   if (path === "/admin/patients") {

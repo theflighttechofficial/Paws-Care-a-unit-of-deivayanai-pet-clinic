@@ -290,7 +290,7 @@ export default function Booking() {
       return
     }
 
-    if (step === "online-payment" || step === "clinic-payment") {
+    if (step === "online-payment") {
       setStep(6)
       return
     }
@@ -300,10 +300,10 @@ export default function Booking() {
 
   const [bookedAppointment, setBookedAppointment] = useState(null)
 
-  // The slot is only actually reserved once payment succeeds (see
-  // PaymentGate + paymentController.verifyPayment) — confirming here just
-  // moves to the payment step with the selection carried along as
-  // bookingDetails, it doesn't create the appointment yet.
+  // Online consultations pay before the slot is reserved (see PaymentGate
+  // + paymentController.verifyPayment) — confirming there just moves to
+  // the payment step with the selection carried along as bookingDetails.
+  // Clinic visits don't require payment, so they book directly below.
   const bookingDetails = {
     petId: selectedPet?._id,
     doctorId: selectedDoctor?._id,
@@ -313,9 +313,28 @@ export default function Booking() {
     startTime: selectedTime,
   }
 
-  const confirmBooking = () => {
+  const confirmBooking = async () => {
     setBookingError("")
-    setStep(selectedType.id === "online" ? "online-payment" : "clinic-payment")
+
+    if (selectedType.id === "online") {
+      setStep("online-payment")
+      return
+    }
+
+    try {
+      const response = await apiRequest("/appointments", {
+        method: "POST",
+        body: JSON.stringify(bookingDetails),
+      })
+
+      setBookedAppointment(response.appointment)
+      if (response.googleCalendarStatus) {
+        localStorage.setItem("lastGoogleCalendarStatus", response.googleCalendarStatus)
+      }
+      setStep(7)
+    } catch (error) {
+      setBookingError(error.message || "Unable to book the appointment.")
+    }
   }
 
   const handlePaid = (result) => {
@@ -891,18 +910,6 @@ export default function Booking() {
             user={user}
             title="Pay to confirm your online consultation"
             description="Pay the consultation fee to reserve your slot and get the call-to-confirm number and your Google Meet link."
-            onPaid={handlePaid}
-            onBack={previousStep}
-          />
-        )}
-
-        {step === "clinic-payment" && (
-          <PaymentGate
-            purpose="clinic_visit"
-            bookingDetails={bookingDetails}
-            user={user}
-            title="Pay to confirm your appointment"
-            description="Pay the consultation fee to reserve your slot at the clinic."
             onPaid={handlePaid}
             onBack={previousStep}
           />
