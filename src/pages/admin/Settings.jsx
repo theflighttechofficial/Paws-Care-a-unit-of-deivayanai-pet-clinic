@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { CalendarDays, CheckCircle2, IndianRupee } from "lucide-react"
+import { CalendarDays, CheckCircle2, Clock3, IndianRupee } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import apiRequest from "../../lib/api"
 import AdminSidebar from "../../components/AdminSidebar"
+
+const SLOT_INTERVAL_OPTIONS = [15, 20, 30, 45, 60]
+
+const scheduleToForm = (schedule) => ({
+  intervalMinutes: schedule.slotIntervalMinutes,
+  weekdayMorningStart: schedule.weekdaySessions[0]?.startHour ?? 9,
+  weekdayMorningEnd: schedule.weekdaySessions[0]?.endHour ?? 13,
+  weekdayEveningStart: schedule.weekdaySessions[1]?.startHour ?? 16,
+  weekdayEveningEnd: schedule.weekdaySessions[1]?.endHour ?? 22,
+  sundayStart: schedule.sundaySessions[0]?.startHour ?? 9,
+  sundayEnd: schedule.sundaySessions[0]?.endHour ?? 13,
+})
 
 export default function Settings() {
   const { user, logout } = useAuth()
@@ -20,11 +32,23 @@ export default function Settings() {
   const [feeError, setFeeError] = useState("")
   const [feeSaved, setFeeSaved] = useState(false)
 
+  const [scheduleForm, setScheduleForm] = useState(null)
+  const [loadingSchedule, setLoadingSchedule] = useState(true)
+  const [savingSchedule, setSavingSchedule] = useState(false)
+  const [scheduleError, setScheduleError] = useState("")
+  const [scheduleSaved, setScheduleSaved] = useState(false)
+
   useEffect(() => {
     apiRequest("/settings")
-      .then((data) => setFeeInput(String((data.consultationFeePaise ?? 0) / 100)))
+      .then((data) => {
+        setFeeInput(String((data.consultationFeePaise ?? 0) / 100))
+        if (data.bookingSchedule) setScheduleForm(scheduleToForm(data.bookingSchedule))
+      })
       .catch((error) => setFeeError(error.message || "Unable to load the consultation fee."))
-      .finally(() => setLoadingFee(false))
+      .finally(() => {
+        setLoadingFee(false)
+        setLoadingSchedule(false)
+      })
   }, [])
 
   const saveFee = async (event) => {
@@ -50,6 +74,52 @@ export default function Settings() {
       setFeeError(error.message || "Unable to update the fee.")
     } finally {
       setSavingFee(false)
+    }
+  }
+
+  const updateScheduleField = (field, value) => {
+    setScheduleForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const saveSchedule = async (event) => {
+    event.preventDefault()
+    setScheduleError("")
+    setScheduleSaved(false)
+
+    const {
+      intervalMinutes,
+      weekdayMorningStart,
+      weekdayMorningEnd,
+      weekdayEveningStart,
+      weekdayEveningEnd,
+      sundayStart,
+      sundayEnd,
+    } = scheduleForm
+
+    if (weekdayMorningStart >= weekdayMorningEnd || weekdayEveningStart >= weekdayEveningEnd || sundayStart >= sundayEnd) {
+      setScheduleError("Each session's start hour must be before its end hour.")
+      return
+    }
+
+    setSavingSchedule(true)
+    try {
+      const data = await apiRequest("/admin/settings/schedule", {
+        method: "PUT",
+        body: JSON.stringify({
+          slotIntervalMinutes: Number(intervalMinutes),
+          weekdaySessions: [
+            { startHour: Number(weekdayMorningStart), endHour: Number(weekdayMorningEnd) },
+            { startHour: Number(weekdayEveningStart), endHour: Number(weekdayEveningEnd) },
+          ],
+          sundaySessions: [{ startHour: Number(sundayStart), endHour: Number(sundayEnd) }],
+        }),
+      })
+      setScheduleForm(scheduleToForm(data.bookingSchedule))
+      setScheduleSaved(true)
+    } catch (error) {
+      setScheduleError(error.message || "Unable to update the booking schedule.")
+    } finally {
+      setSavingSchedule(false)
     }
   }
 
@@ -187,6 +257,84 @@ export default function Settings() {
           </div>
 
           <div className="mt-8">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4c806c]">Scheduling</p>
+            <h2 className="mt-2 text-xl font-semibold">Booking hours</h2>
+            <p className="mt-2 text-sm leading-6 text-[#718079]">
+              Controls which time slots owners can pick when booking — Mon–Sat has two sessions, Sundays have one.
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-[2rem] border border-[#e1e7e2] bg-white p-6">
+            {loadingSchedule || !scheduleForm ? (
+              <div className="h-40 animate-pulse rounded-2xl bg-[#f1f4f1]" />
+            ) : (
+              <form onSubmit={saveSchedule} className="space-y-5">
+                <div>
+                  <span className="mb-2 block text-xs font-semibold text-[#52615a]">Mon–Sat · Morning session</span>
+                  <div className="flex items-center gap-3">
+                    <HourInput value={scheduleForm.weekdayMorningStart} onChange={(v) => updateScheduleField("weekdayMorningStart", v)} />
+                    <span className="text-xs text-[#87928c]">to</span>
+                    <HourInput value={scheduleForm.weekdayMorningEnd} onChange={(v) => updateScheduleField("weekdayMorningEnd", v)} />
+                  </div>
+                </div>
+
+                <div>
+                  <span className="mb-2 block text-xs font-semibold text-[#52615a]">Mon–Sat · Evening session</span>
+                  <div className="flex items-center gap-3">
+                    <HourInput value={scheduleForm.weekdayEveningStart} onChange={(v) => updateScheduleField("weekdayEveningStart", v)} />
+                    <span className="text-xs text-[#87928c]">to</span>
+                    <HourInput value={scheduleForm.weekdayEveningEnd} onChange={(v) => updateScheduleField("weekdayEveningEnd", v)} />
+                  </div>
+                </div>
+
+                <div>
+                  <span className="mb-2 block text-xs font-semibold text-[#52615a]">Sunday session</span>
+                  <div className="flex items-center gap-3">
+                    <HourInput value={scheduleForm.sundayStart} onChange={(v) => updateScheduleField("sundayStart", v)} />
+                    <span className="text-xs text-[#87928c]">to</span>
+                    <HourInput value={scheduleForm.sundayEnd} onChange={(v) => updateScheduleField("sundayEnd", v)} />
+                  </div>
+                </div>
+
+                <label className="block max-w-xs">
+                  <span className="mb-2 block text-xs font-semibold text-[#52615a]">Slot length</span>
+                  <div className="relative">
+                    <Clock3 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa59f]" />
+                    <select
+                      value={scheduleForm.intervalMinutes}
+                      onChange={(event) => updateScheduleField("intervalMinutes", event.target.value)}
+                      className="w-full appearance-none rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] py-3 pl-10 pr-4 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
+                    >
+                      {SLOT_INTERVAL_OPTIONS.map((minutes) => (
+                        <option key={minutes} value={minutes}>{minutes} minutes</option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={savingSchedule}
+                  className="rounded-full bg-[#173b31] px-6 py-3 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {savingSchedule ? "Saving…" : "Save schedule"}
+                </button>
+              </form>
+            )}
+
+            {scheduleSaved && (
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-[#e4f1e7] px-4 py-3 text-sm text-[#397051]">
+                <CheckCircle2 size={16} />
+                Booking schedule updated.
+              </div>
+            )}
+
+            {scheduleError && (
+              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{scheduleError}</p>
+            )}
+          </div>
+
+          <div className="mt-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4c806c]">Integrations</p>
             <h2 className="mt-2 text-xl font-semibold">Google Calendar & Meet</h2>
             <p className="mt-2 text-sm leading-6 text-[#718079]">
@@ -263,6 +411,22 @@ export default function Settings() {
         </div>
       </main>
     </div>
+  )
+}
+
+function HourInput({ value, onChange }) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(Number(event.target.value))}
+      className="w-24 rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] px-3 py-2.5 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
+    >
+      {Array.from({ length: 25 }, (_, hour) => (
+        <option key={hour} value={hour}>
+          {hour === 0 || hour === 24 ? "12:00 AM" : hour < 12 ? `${hour}:00 AM` : hour === 12 ? "12:00 PM" : `${hour - 12}:00 PM`}
+        </option>
+      ))}
+    </select>
   )
 }
 

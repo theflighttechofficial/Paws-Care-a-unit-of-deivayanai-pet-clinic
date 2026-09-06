@@ -296,6 +296,10 @@ export async function apiRequest(path, options = {}) {
     return request("/admin/settings/fee", { method: "PUT", body: options.body })
   }
 
+  if (path === "/admin/settings/schedule" && method === "PUT") {
+    return request("/admin/settings/schedule", { method: "PUT", body: options.body })
+  }
+
   if (path === "/payments/create-order") {
     return request("/payments/create-order", { method: "POST", body: options.body })
   }

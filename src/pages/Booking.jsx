@@ -42,9 +42,17 @@ const unusedLegacyPets = [
 ]
 */
 
-const SLOT_INTERVAL_MINUTES = 30
-const MORNING_SESSION = { startHour: 9, endHour: 13 }
-const EVENING_SESSION = { startHour: 16, endHour: 22 }
+// Falls back to these exact hours/interval (admin's previous fixed
+// schedule) until the real schedule loads from /api/settings, and again if
+// that fetch ever fails — so a config-loading hiccup never blocks booking.
+const DEFAULT_BOOKING_SCHEDULE = {
+  slotIntervalMinutes: 30,
+  weekdaySessions: [
+    { startHour: 9, endHour: 13 },
+    { startHour: 16, endHour: 22 },
+  ],
+  sundaySessions: [{ startHour: 9, endHour: 13 }],
+}
 
 const formatSlotLabel = (hour, minute) => {
   const suffix = hour >= 12 ? "PM" : "AM"
@@ -52,9 +60,9 @@ const formatSlotLabel = (hour, minute) => {
   return `${String(displayHour).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${suffix}`
 }
 
-const buildSession = ({ startHour, endHour }) => {
+const buildSession = ({ startHour, endHour }, slotIntervalMinutes) => {
   const slots = []
-  for (let minutes = startHour * 60; minutes < endHour * 60; minutes += SLOT_INTERVAL_MINUTES) {
+  for (let minutes = startHour * 60; minutes < endHour * 60; minutes += slotIntervalMinutes) {
     slots.push(formatSlotLabel(Math.floor(minutes / 60), minutes % 60))
   }
   return slots
@@ -81,11 +89,13 @@ const parseSlotDateTime = (dateKey, timeLabel) => {
   return new Date(`${dateKey}T${hh}:${mm}:00${CLINIC_UTC_OFFSET}`)
 }
 
-// Mon–Sat: 9:00 AM–1:00 PM and 4:00 PM–10:00 PM. Sundays: mornings only.
-// Slots that have already passed today are excluded so a slot can't be
-// picked and booked after its time has come and gone.
-const getTimeSlotsForDate = (date) => {
-  const allSlots = date?.day === "Sun" ? buildSession(MORNING_SESSION) : [...buildSession(MORNING_SESSION), ...buildSession(EVENING_SESSION)]
+// Hours/interval come from the admin-configured schedule (falls back to
+// DEFAULT_BOOKING_SCHEDULE while loading). Slots that have already passed
+// today are excluded so a slot can't be picked and booked after its time
+// has come and gone.
+const getTimeSlotsForDate = (date, schedule) => {
+  const sessions = date?.day === "Sun" ? schedule.sundaySessions : schedule.weekdaySessions
+  const allSlots = sessions.flatMap((session) => buildSession(session, schedule.slotIntervalMinutes))
   if (!date) return allSlots
 
   const now = new Date()
@@ -141,9 +151,20 @@ export default function Booking() {
   const [services, setServices] = useState([])
   const [servicesLoading, setServicesLoading] = useState(true)
   const [servicesError, setServicesError] = useState("")
+  const [bookingSchedule, setBookingSchedule] = useState(DEFAULT_BOOKING_SCHEDULE)
 
   const isPhoneConsultation = selectedType?.id === "phone"
   const isSurgery = selectedService?.phoneOnly
+
+  useEffect(() => {
+    apiRequest("/settings")
+      .then((data) => {
+        if (data.bookingSchedule) setBookingSchedule(data.bookingSchedule)
+      })
+      .catch(() => {
+        // Keep DEFAULT_BOOKING_SCHEDULE — a config-loading hiccup shouldn't block booking.
+      })
+  }, [])
 
   useEffect(() => {
     if (authLoading || !user?.id) {
@@ -672,7 +693,9 @@ export default function Booking() {
 
                         {selectedDate.day === "Sun" && (
                           <p className="mt-2 text-[10px] text-[#a0aaa5]">
-                            Sundays: morning hours only (9:00 AM – 1:00 PM).
+                            Sundays: {bookingSchedule.sundaySessions
+                              .map((session) => `${formatSlotLabel(session.startHour, 0)} – ${formatSlotLabel(session.endHour % 24, 0)}`)
+                              .join(", ")}.
                           </p>
                         )}
 
@@ -688,7 +711,7 @@ export default function Booking() {
                         ) : (
                           <>
                             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                              {getTimeSlotsForDate(selectedDate).map((time) => {
+                              {getTimeSlotsForDate(selectedDate, bookingSchedule).map((time) => {
                                 const isBooked = bookedTimes.includes(time)
 
                                 return (
