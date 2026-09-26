@@ -77,6 +77,12 @@ export const deletePet = async (id, ownerId) => {
   return rows[0] || null
 }
 
+// Admin-scoped: no owner_id filter, since an admin can act on any patient.
+export const deletePetAsAdmin = async (id) => {
+  const { rows } = await pool.query("delete from public.pets where id = $1 returning id", [id])
+  return rows[0] || null
+}
+
 export const countPets = async () => {
   const { rows } = await pool.query("select count(*)::int as count from public.pets")
   return rows[0].count

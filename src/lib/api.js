@@ -412,6 +412,14 @@ export async function apiRequest(path, options = {}) {
     return { success: true, pets: (data.pets || []).map(normalizePet) }
   }
 
+  if (path.startsWith("/admin/patients/") && method === "DELETE") {
+    return request(path, { method: "DELETE" })
+  }
+
+  if (path === "/admin/send-email" && method === "POST") {
+    return request("/admin/send-email", { method: "POST", body: options.body })
+  }
+
   if (path === "/admin/payments" && method === "GET") {
     const data = await request("/admin/payments")
     return { success: true, payments: (data.payments || []).map(normalizePayment) }

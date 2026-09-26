@@ -1,9 +1,11 @@
 import connectDB from "./config/db.js"
 import app from "./app.js"
 import { sendDueReminders } from "./jobs/appointmentReminders.js"
+import { checkGoogleCalendarConnection } from "./jobs/googleCalendarWatch.js"
 
 const PORT = process.env.PORT || 5000
 const REMINDER_INTERVAL_MS = 15 * 60 * 1000
+const GOOGLE_WATCH_INTERVAL_MS = 30 * 60 * 1000
 
 const startServer = async () => {
   const connection = await connectDB()
@@ -26,6 +28,12 @@ const startServer = async () => {
   }
   runReminders()
   setInterval(runReminders, REMINDER_INTERVAL_MS)
+
+  const runGoogleWatch = () => {
+    checkGoogleCalendarConnection().catch((error) => console.error("Google Calendar watch job failed:", error))
+  }
+  runGoogleWatch()
+  setInterval(runGoogleWatch, GOOGLE_WATCH_INTERVAL_MS)
 }
 
 startServer()

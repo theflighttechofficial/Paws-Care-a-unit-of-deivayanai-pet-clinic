@@ -139,9 +139,41 @@ export const sendOwnerBookingConfirmationEmail = async (toEmail, appointment) =>
   }
 }
 
+// Free-form email an admin composes and sends from the admin dashboard
+// (e.g. to a patient's owner) — same sender/config as every other
+// transactional email, just with admin-supplied subject/body instead of a
+// fixed template. Line breaks in `message` are preserved as <br>s since
+// admins type plain text, not HTML.
+export const sendCustomEmail = async ({ to, subject, message, replyTo }) => {
+  if (!resend || !FROM) {
+    throw new Error("RESEND_API_KEY and RESEND_FROM must both be configured.")
+  }
+
+  const escapeHtml = (value) =>
+    String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]))
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    ...(replyTo ? { reply_to: replyTo } : {}),
+    subject,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <p style="white-space: pre-line;">${escapeHtml(message)}</p>
+        <p style="color:#718079;font-size:13px;margin-top:24px;">Paws & Care</p>
+      </div>
+    `,
+  })
+
+  if (error) {
+    throw new Error(error.message || "Failed to send email.")
+  }
+}
+
 export default {
   sendPasswordResetEmail,
   sendAppointmentReminderEmail,
   sendDoctorNewAppointmentEmail,
   sendOwnerBookingConfirmationEmail,
+  sendCustomEmail,
 }

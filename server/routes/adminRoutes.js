@@ -1,5 +1,12 @@
 import express from "express"
-import { deleteAdminAppointment, getAdminAppointments, getAdminPatients, getAdminStats } from "../controllers/adminController.js"
+import {
+  deleteAdminAppointment,
+  deleteAdminPatient,
+  getAdminAppointments,
+  getAdminPatients,
+  getAdminStats,
+  sendAdminEmail,
+} from "../controllers/adminController.js"
 import { disconnectGoogle, getGoogleConnectionStatus, startGoogleConnect } from "../controllers/googleAuthController.js"
 import { getAllPayments, recordManualPayment } from "../controllers/paymentController.js"
 import { getAdminRatings } from "../controllers/ratingController.js"
@@ -15,6 +22,8 @@ router.get("/stats", getAdminStats)
 router.get("/appointments", getAdminAppointments)
 router.delete("/appointments/:id", deleteAdminAppointment)
 router.get("/patients", getAdminPatients)
+router.delete("/patients/:id", deleteAdminPatient)
+router.post("/send-email", sendAdminEmail)
 router.get("/payments", getAllPayments)
 router.post("/payments", recordManualPayment)
 router.get("/ratings", getAdminRatings)
