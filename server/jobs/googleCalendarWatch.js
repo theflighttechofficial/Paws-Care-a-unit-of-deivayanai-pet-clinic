@@ -18,7 +18,12 @@ export const checkGoogleCalendarConnection = async () => {
     await sendCustomEmail({
       to: ADMIN_EMAIL,
       subject: "Paws & Care — Google Calendar disconnected",
-      message: `Google Calendar sync has stopped working.\n\nAccount: ${connection.connected_email || "unknown"}\nError: ${status.error || "refresh token no longer valid"}\n\nReconnect it from Admin -> Settings.`,
+      message: `Google Calendar sync has stopped working.
+
+Account: ${connection.connected_email || "unknown"}
+Error: ${status.error || "refresh token no longer valid"}
+
+Reconnect it from Admin -> Settings.`,
     })
     await markDisconnectAlertSent()
   } catch (error) {

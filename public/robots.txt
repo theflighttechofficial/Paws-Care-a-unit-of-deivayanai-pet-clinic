@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /doctor
+Disallow: /dashboard
+Disallow: /booking
+Disallow: /appointments
+Disallow: /pets
+Disallow: /payments
+Disallow: /reset-password
+
+Sitemap: https://deivayanaipetclinic.online/sitemap.xml

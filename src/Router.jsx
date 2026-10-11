@@ -12,6 +12,10 @@ import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
 import NotFound from "./pages/NotFound"
 import AboutDeveloper from "./pages/AboutDeveloper"
+import { PrivacyPolicy, TermsOfService } from "./pages/LegalPage"
+import Seo from "./components/Seo"
+import OfflineBanner from "./components/OfflineBanner"
+import CookieNotice from "./components/CookieNotice"
 import Dashboard from "./pages/Dashboard"
 import Pets from "./pages/Pets"
 import PetProfile from "./pages/PetProfile"
@@ -78,8 +82,11 @@ function RouteTransition() {
 export default function Router() {
   return (
     <>
+      <Seo />
+      <OfflineBanner />
       <RouteTransition />
       <AppRoutes />
+      <CookieNotice />
     </>
   )
 }
@@ -93,6 +100,8 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/about-developer" element={<AboutDeveloper />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       <Route element={<ProtectedRoute allowedRoles={["owner"]} />}>
         <Route path="/booking" element={<Booking />} />

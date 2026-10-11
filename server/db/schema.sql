@@ -1,7 +1,8 @@
 -- Paws & Care — self-hosted Postgres schema.
 --
--- Replaces Supabase entirely: no Row Level Security, no auth.users, no
--- PostgREST. profiles is now the root identity table (email + password
+-- Replaces Supabase entirely: no auth.users, no PostgREST. If the database is
+-- hosted on Supabase, also run server/db/enable_rls.sql so the public Data API
+-- cannot read these tables. profiles is now the root identity table (email + password
 -- hash live here) and all authorization is enforced in the Express API.
 --
 -- Run once against an empty database:

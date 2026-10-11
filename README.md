@@ -25,6 +25,7 @@ Built end-to-end by **S. Varun Vaibhav** ([The Flight Tech Labs](https://github.
 - [Development Data & Scripts](#development-data--scripts)
 - [Project Structure](#project-structure)
 - [Validation](#validation)
+- [SEO, Legal & Accessibility](#seo-legal--accessibility)
 - [Current Scope](#current-scope)
 - [Security Notes](#security-notes)
 
@@ -66,6 +67,8 @@ Built end-to-end by **S. Varun Vaibhav** ([The Flight Tech Labs](https://github.
 
 - A global React error boundary and a combined 404 / "under maintenance" page (with a Lottie animation) so a crash never shows a blank white screen.
 - Every error banner across the app includes a one-click "email admin" link (prefilled with the error + page URL).
+- An offline banner appears when the browser loses its connection, and form submit buttons disable (with a "working…" label) while a request is in flight to prevent double submits.
+- Sign-in and registration validate email format and a 6-character minimum password before submitting.
 - The Razorpay payment step warns users to disable ad blockers, which are the most common cause of the checkout script failing to load.
 
 ---
@@ -97,7 +100,7 @@ Express API (:5000)
 	+--> Resend email delivery
 ```
 
-The API is mounted under `/api`. In development, Vite proxies `/api` requests to the Express server. Authorization is enforced by the API with bearer JWTs; the database itself does not use Supabase Auth or row-level security.
+The API is mounted under `/api`. In development, Vite proxies `/api` requests to the Express server. Authorization is enforced by the API with bearer JWTs; the app talks to Postgres directly through the server (never through Supabase's Data API). If the database is hosted on Supabase, run [`server/db/enable_rls.sql`](server/db/enable_rls.sql) once so the public Data API cannot read any table.
 
 ## Requirements
 
@@ -193,6 +196,8 @@ The schema is defined in [`server/db/schema.sql`](server/db/schema.sql) and cont
 - `google_calendar_connection` — one shared OAuth connection for the clinic calendar.
 - `app_settings` — singleton row holding the admin-configurable consultation fee.
 
+**Supabase-hosted databases:** the Supabase Data API exposes every table in `public` unless Row-Level Security is on. Apply [`server/db/enable_rls.sql`](server/db/enable_rls.sql) (idempotent) in the SQL editor. It enables RLS with no policies and revokes `anon`/`authenticated` grants. The Express server connects as `postgres`, which bypasses RLS, so the app is unaffected. Confirm the production `DATABASE_URL` user is `postgres` (or another `BYPASSRLS`/owner role) first.
+
 A partial unique index prevents two non-cancelled appointments from occupying the same doctor, date, and time slot.
 
 ## API Overview
@@ -206,7 +211,7 @@ Authorization: Bearer <jwt>
 | Area | Routes |
 | --- | --- |
 | Authentication | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/google`, `GET /api/auth/me`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password` |
-| Health | `GET /api/health` |
+| Health | `GET /api/health` (status only — no integration details) |
 | Public settings | `GET /api/settings` (current consultation fee), `GET /api/services` (service catalog) |
 | Pets | `GET/POST /api/pets`, `GET/PUT/DELETE /api/pets/:id` |
 | Appointments | `GET /api/appointments/doctors`, `GET /api/appointments/booked-slots`, `GET /api/appointments/owner/mine`, `POST /api/appointments`, `GET /api/appointments/:id` |
@@ -278,7 +283,7 @@ Review each script before running it against a shared or production database. In
 ```text
 pet-clinic/
 ├── src/
-│   ├── components/       Shared UI components (PaymentGate, ErrorBoundary, OnboardingTour, ErrorNotice, ...)
+│   ├── components/       Shared UI components (PaymentGate, ErrorBoundary, OnboardingTour, ErrorNotice, Seo, OfflineBanner, CookieNotice, ...)
 │   ├── context/           Authentication state
 │   ├── lib/               API client, clinic info, helpers
 │   ├── pages/             Owner, doctor, and admin screens
@@ -294,7 +299,7 @@ pet-clinic/
 │   ├── routes/            Express route definitions
 │   ├── services/          Shared booking logic (payment-gated slot creation)
 │   └── scripts/           Seed, migration, and maintenance scripts
-├── public/                Static frontend assets (incl. Lottie animations)
+├── public/                Static assets (Lottie animations, robots.txt, sitemap.xml)
 ├── index.html
 ├── vite.config.js
 ├── apphosting.yaml
@@ -312,6 +317,16 @@ npm run lint
 
 There is currently no automated test suite or `npm test` script. The production build is the primary automated frontend check, while end-to-end verification requires a reachable PostgreSQL database, configured Razorpay keys, and a configured local environment.
 
+## SEO, Legal & Accessibility
+
+- **Per-route metadata:** [`src/components/Seo.jsx`](src/components/Seo.jsx) sets a unique `<title>`, meta description, canonical URL, Open Graph and Twitter tags for every route. Private and auth pages (dashboards, admin, login, register, reset) and unknown URLs are served `noindex, nofollow`. Add new public pages to `PUBLIC_META` there and to `public/sitemap.xml`.
+- **Static fallback:** `index.html` carries the same tags plus `VeterinaryCare` JSON-LD structured data (phone, email, hours, locality) for crawlers that do not run JavaScript.
+- **Crawling:** `public/robots.txt` blocks `/api/` and all signed-in areas and points to `public/sitemap.xml`. If the domain changes, update `SITE_URL` in `src/lib/clinicInfo.js`, `index.html`, `robots.txt` and `sitemap.xml`.
+- **Legal:** `/privacy` and `/terms` ([`src/pages/LegalPage.jsx`](src/pages/LegalPage.jsx)) are linked from the footer. A cookie/storage notice ([`CookieNotice.jsx`](src/components/CookieNotice.jsx)) explains the essential sign-in storage and Google/Razorpay third-party services. The texts are a good-faith template — have them reviewed by a lawyer before relying on them.
+- **Contact details:** clinic phone and email live in `src/lib/clinicInfo.js` (single source of truth for the footer, legal pages and structured data).
+- **Attribution:** photographs (Unsplash), icons (Lucide, ISC), animations (LottieFiles) and the Dancing Script font (OFL) are credited in the footer and Terms.
+- **Accessibility:** one `<h1>` per page, descriptive image `alt` text, `autocomplete` hints on auth forms.
+
 ## Current Scope
 
 - Phone consultations route to a payment step and then contact information, rather than a slot-based appointment.
@@ -326,4 +341,7 @@ There is currently no automated test suite or `npm test` script. The production 
 - Use a strong, unique `JWT_SECRET` in every environment — rotating it logs out every currently-signed-in user.
 - Protect the PostgreSQL database because it stores password hashes, reset-token hashes, OAuth tokens, payment records, and clinic records.
 - `RAZORPAY_KEY_SECRET` must never reach frontend code or be committed — only `RAZORPAY_KEY_ID` is safe to expose publicly.
+- The server sets baseline security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) and hides `X-Powered-By`. A Content-Security-Policy is intentionally not set because the app loads Razorpay, Google Identity/Maps and the dotLottie runtime from third parties; add one only after testing those flows.
+- Frontend bundle audit: only public values are shipped (`VITE_API_URL`, `VITE_GOOGLE_CLIENT_ID`, and the Razorpay key ID returned by the API). Re-run a search of `dist/` for keys/connection strings after every build if you add new `VITE_` variables.
+- If a secret has ever been pasted into chat, a screenshot or a committed file, rotate it (database password, `JWT_SECRET`, Razorpay, Resend, Google client secret).
 - Review and tighten CORS, token handling, logging, and email configuration before production deployment.

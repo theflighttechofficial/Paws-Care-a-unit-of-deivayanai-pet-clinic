@@ -18,6 +18,7 @@ export default function Register() {
     phone: "",
   })
   const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const update = (key, value) => {
     setForm((previous) => ({
@@ -29,6 +30,13 @@ export default function Register() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError("")
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.")
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const data = await register({
@@ -42,6 +50,8 @@ export default function Register() {
       return data
     } catch (error) {
       setError(error.message || "Something went wrong. Please try again.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -76,6 +86,7 @@ export default function Register() {
               icon={User}
               label="Full name"
               placeholder="Your name"
+              autoComplete="name"
               value={form.name}
               onChange={(value) => update("name", value)}
             />
@@ -85,6 +96,7 @@ export default function Register() {
               label="Email address"
               type="email"
               placeholder="you@example.com"
+              autoComplete="email"
               value={form.email}
               onChange={(value) => update("email", value)}
             />
@@ -93,7 +105,9 @@ export default function Register() {
               icon={Lock}
               label="Password"
               type="password"
-              placeholder="Create a password"
+              placeholder="Create a password (min. 6 characters)"
+              autoComplete="new-password"
+              minLength={6}
               value={form.password}
               onChange={(value) => update("password", value)}
             />
@@ -103,6 +117,7 @@ export default function Register() {
               label="Phone number"
               type="tel"
               placeholder="9876543210"
+              autoComplete="tel"
               value={form.phone}
               onChange={(value) => update("phone", value)}
             />
@@ -111,9 +126,10 @@ export default function Register() {
 
             <button
               type="submit"
-              className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#173b31] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#285b4c]"
+              disabled={submitting}
+              className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#173b31] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#285b4c] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create Account
+              {submitting ? "Creating account…" : "Create Account"}
               <ArrowRight
                 size={16}
                 className="transition-transform group-hover:translate-x-1"
@@ -151,6 +167,8 @@ function Input({
   label,
   type = "text",
   placeholder,
+  autoComplete,
+  minLength,
   value,
   onChange,
 }) {
@@ -172,6 +190,8 @@ function Input({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          autoComplete={autoComplete}
+          minLength={minLength}
           className="w-full rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
         />
       </div>

@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "./context/AuthContext"
 import Logo from "./components/Logo"
-import { CLINIC_PHONE_DISPLAY, CLINIC_PHONE_TEL } from "./lib/clinicInfo"
+import { CLINIC_EMAIL, CLINIC_PHONE_DISPLAY, CLINIC_PHONE_TEL } from "./lib/clinicInfo"
 
 const roleHomeMap = { owner: "/dashboard", doctor: "/doctor", admin: "/admin" }
 
@@ -280,7 +280,7 @@ function App() {
               <div className="relative overflow-hidden rounded-[3rem] bg-[#dceae1]">
                 <img
                   src="https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=1200&q=90"
-                  alt="Happy dog"
+                  alt="A happy dog looking at the camera"
                   className="h-[520px] w-full object-cover object-center md:h-[650px]"
                 />
 
@@ -358,7 +358,7 @@ function App() {
               <div className="relative">
                 <img
                   src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=1200&q=90"
-                  alt="Pet owner with dog"
+                  alt="Pet owner sitting with their dog"
                   className="h-[500px] w-full rounded-[3rem] object-cover md:h-[650px]"
                 />
 
@@ -460,7 +460,7 @@ function App() {
                       <div className="relative h-72 overflow-hidden">
                         <img
                           src="https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=900&q=85"
-                          alt="Veterinarian with dog"
+                          alt="Veterinarian examining a dog"
                           className="h-full w-full object-cover"
                         />
 
@@ -659,7 +659,12 @@ function App() {
               <div className="space-y-3 text-sm text-white/70">
                 <p>📍 Chennai, Tamil Nadu</p>
                 <p>📞 {CLINIC_PHONE_DISPLAY}</p>
-                <p>✉ subbu76_vet@yahoo.com</p>
+                <p>
+                  ✉{" "}
+                  <a href={`mailto:${CLINIC_EMAIL}`} className="hover:text-white">
+                    {CLINIC_EMAIL}
+                  </a>
+                </p>
                 <p>Mon – Sat · 9:00 AM – 10:00 PM</p>
                 <p>Sun · 8:00 AM – 5:00 PM</p>
                 <p className="space-x-3 pt-1">
@@ -719,8 +724,27 @@ function App() {
           </div>
 
           <div className="mt-10 border-t border-white/10 pt-6 text-xs text-white/40">
-            © 2026 Paws & Care, a unit of Deivayanai Pet Clinic. All rights
-            reserved.
+            <p>
+              © 2026 Paws & Care, a unit of Deivayanai Pet Clinic. All rights
+              reserved.
+            </p>
+            <p className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+              <Link to="/privacy" className="hover:text-white">
+                Privacy Policy
+              </Link>
+              <Link to="/terms" className="hover:text-white">
+                Terms of Service
+              </Link>
+              <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                Photos: Unsplash
+              </a>
+              <a href="https://lucide.dev" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                Icons: Lucide
+              </a>
+              <a href="https://lottiefiles.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                Animations: LottieFiles
+              </a>
+            </p>
           </div>
         </div>
       </footer>

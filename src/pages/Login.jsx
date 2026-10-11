@@ -14,10 +14,12 @@ export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const handleLogin = async (event) => {
     event.preventDefault()
     setError("")
+    setSubmitting(true)
 
     try {
       const data = await login({ email, password })
@@ -31,6 +33,8 @@ export default function Login() {
       }
     } catch (error) {
       setError(error.message || "Invalid email or password.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -55,11 +59,11 @@ export default function Login() {
                   Your pet's care
                 </p>
 
-                <h1 className="mt-4 text-5xl font-semibold leading-tight tracking-[-0.05em]">
+                <h2 className="mt-4 text-5xl font-semibold leading-tight tracking-[-0.05em]">
                   Everything your pet needs,
                   <br />
                   in one place.
-                </h1>
+                </h2>
 
                 <p className="mt-6 max-w-md leading-7 text-white/60">
                   Manage appointments, pets and veterinary care from your
@@ -87,9 +91,9 @@ export default function Login() {
                   Welcome back
                 </p>
 
-                <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
+                <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
                   Sign in
-                </h2>
+                </h1>
 
                 <p className="mt-3 text-sm leading-6 text-[#718079]">
                   Access your pet's appointments and health information.
@@ -102,6 +106,7 @@ export default function Login() {
                   label="Email address"
                   type="email"
                   placeholder="you@example.com"
+                  autoComplete="email"
                   value={email}
                   onChange={setEmail}
                 />
@@ -111,6 +116,7 @@ export default function Login() {
                   label="Password"
                   type="password"
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={setPassword}
                 />
@@ -128,9 +134,10 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#173b31] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#285b4c]"
+                  disabled={submitting}
+                  className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#173b31] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#285b4c] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Sign in
+                  {submitting ? "Signing in…" : "Sign in"}
                   <ArrowRight
                     size={16}
                     className="transition-transform group-hover:translate-x-1"
@@ -170,6 +177,8 @@ function Input({
   label,
   type,
   placeholder,
+  autoComplete,
+  minLength,
   value,
   onChange,
 }) {
@@ -191,6 +200,8 @@ function Input({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          autoComplete={autoComplete}
+          minLength={minLength}
           className="w-full rounded-2xl border border-[#dfe6e1] bg-[#fbfcfb] py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-[#4c806c] focus:ring-4 focus:ring-[#4c806c]/10"
         />
       </div>

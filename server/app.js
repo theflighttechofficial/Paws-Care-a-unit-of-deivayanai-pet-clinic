@@ -13,7 +13,6 @@ import petRoutes from "./routes/petRoutes.js"
 import serviceRoutes from "./routes/serviceRoutes.js"
 import settingsRoutes from "./routes/settingsRoutes.js"
 import { googleOAuthCallback } from "./controllers/googleAuthController.js"
-import { getGoogleCalendarStatus } from "./lib/googleCalendar.js"
 
 dotenv.config()
 
@@ -29,6 +28,17 @@ app.use(
     credentials: true,
   })
 )
+
+// Baseline security headers. No CSP on purpose: the app loads Razorpay,
+// Google Identity, Google Maps and the dotLottie runtime from third parties.
+app.disable("x-powered-by")
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff")
+  res.setHeader("X-Frame-Options", "SAMEORIGIN")
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin")
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+  next()
+})
 
 app.use(express.json())
 
@@ -52,7 +62,6 @@ app.get("/api/health", async (req, res) => {
   res.json({
     success: true,
     message: "Paws & Care API is running 🐾",
-    googleCalendar: await getGoogleCalendarStatus(),
   })
 })
 
