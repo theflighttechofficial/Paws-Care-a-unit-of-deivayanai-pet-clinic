@@ -10,6 +10,7 @@ Built end-to-end by **S. Varun Vaibhav** ([The Flight Tech Labs](https://github.
 
 ## Table of Contents
 
+- [Screenshots](#screenshots)
 - [What It Includes](#what-it-includes)
 - [Technology](#technology)
 - [Architecture](#architecture)
@@ -28,6 +29,24 @@ Built end-to-end by **S. Varun Vaibhav** ([The Flight Tech Labs](https://github.
 - [SEO, Legal & Accessibility](#seo-legal--accessibility)
 - [Current Scope](#current-scope)
 - [Security Notes](#security-notes)
+
+---
+
+## Screenshots
+
+| Landing page | Landing page (mobile) |
+| --- | --- |
+| ![Landing page](docs/screenshots/home.png) | ![Landing page on mobile](docs/screenshots/home-mobile.png) |
+
+| Sign in | Create account |
+| --- | --- |
+| ![Sign in](docs/screenshots/login.png) | ![Create account](docs/screenshots/register.png) |
+
+| Privacy Policy | 404 page |
+| --- | --- |
+| ![Privacy Policy](docs/screenshots/privacy.png) | ![404 page](docs/screenshots/not-found.png) |
+
+> Signed-in screens (owner dashboard, booking, doctor and admin views) are not pictured because they need live clinic data. Screenshots are regenerated with Playwright against `npm run preview`.
 
 ---
 
